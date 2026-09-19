@@ -43,6 +43,8 @@ python3 tests/test_logic.py        # pure helpers, no X11 / saf yardımcılar, X
 python3 tests/test_imports.py      # every module imports / tüm modüller import edilebilir
 python3 tests/test_hotkey_logic.py # key routing with fake events / sahte olaylarla tuş yönlendirme
 python3 tests/flow_check.py [i]    # real display: raise window i / gerçek ekran: i'inci pencereyi öne al
+DISPLAY=:0 python3 tests/test_live_display.py  # real X calls / gerçek X çağrıları (stop the app first / önce uygulamayı durdur)
+bash check-install.sh              # is the installation healthy? / kurulum sağlıklı mı?
 python3 -m doctest logic.py        # doctests inside logic.py / logic.py içindeki doctestler
 ./run.sh --print-windows           # dump the live window list / canlı pencere listesini yaz
 ./run.sh --demo-panel 5            # show the panel without the hotkey / kanca olmadan paneli göster
@@ -68,6 +70,28 @@ in `L.grab_unavailable`.
 Fluxbox, `Mod1 Tab` kombinasyonunu derlenmiş varsayılanlarla `NextWindow`'a bağlar ve X bir kombinasyonu
 tek bir istemciye verir. Bu yüzden kurulum betiği `~/.fluxbox/keys` içindeki o satırları etkisiz hale
 getirip pencere yöneticisini yeniler. O adım olmadan uygulama `L.grab_unavailable` mesajıyla çıkar.
+
+## When Alt is not Mod1 / Alt Mod1 değilse
+
+A grab on `Mod1+Tab` succeeds even when **no key produces Mod1**, so the app looks healthy while
+Alt+Tab does nothing. This really happened here: `mod1` was empty and `Alt_L (0x40)` sat inside
+`control`, which also meant Fluxbox's own `Mod1 Tab :NextWindow` binding had never fired. Check with
+`xmodmap -pm`; the app also prints a warning with the repair command when it detects this.
+
+`Mod1+Tab` üzerine grab, **hiçbir tuş Mod1 üretmese bile** başarılı olur; yani uygulama sağlıklı
+görünürken Alt+Tab hiçbir şey yapmaz. Bu tam olarak burada yaşandı: `mod1` boştu ve `Alt_L (0x40)`
+`control` grubundaydı; bu yüzden Fluxbox'ın kendi `Mod1 Tab :NextWindow` bağlaması da hiç çalışmamıştı.
+`xmodmap -pm` ile kontrol edin; uygulama bunu algıladığında düzeltme komutuyla birlikte uyarı yazar.
+
+```bash
+xmodmap -e "clear control" -e "add control = Control_L Control_R" \
+        -e "clear mod1"    -e "add mod1 = Alt_L"
+```
+
+`setup-fluxbox.sh` applies this when needed and writes the same guarded repair into
+`~/.fluxbox/startup`, so a login that breaks the map again repairs itself.
+`setup-fluxbox.sh` gerektiğinde bunu uygular ve aynı korumalı onarımı `~/.fluxbox/startup` dosyasına
+yazar; haritayı tekrar bozan bir giriş kendini onarır.
 
 ## Design notes / Tasarım notları
 
@@ -102,5 +126,8 @@ getirip pencere yöneticisini yeniler. O adım olmadan uygulama `L.grab_unavaila
 | `panel.py` | GTK panel / GTK panel |
 | `run.sh` | launcher / başlatıcı |
 | `setup-fluxbox.sh` | one-time Fluxbox setup / tek seferlik Fluxbox kurulumu |
+| `check-install.sh` | installation health check / kurulum sağlık kontrolü |
+| `COMMANDS.md` | command reference / komut listesi |
 | `alttab-personal.desktop` | autostart entry / otomatik başlatma |
 | `tests/test_logic.py` | offline tests / çevrimdışı testler |
+| `tests/test_live_display.py` | real X tests, skipped without a display / gerçek X testleri, ekran yoksa atlanır |
