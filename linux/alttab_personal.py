@@ -115,6 +115,44 @@ class Switcher:
         return 0
 
 
+def demo_panel(seconds=5):
+    """Show the panel with the real window list and cycle through it, then quit.
+    No hotkey is grabbed, so this is safe to run while the real instance is running:
+    it exists to verify rendering, ordering and cycling without pressing Alt+Tab.
+
+    Paneli gerçek pencere listesiyle göster, üzerinde gez, sonra çık. Kanca kurulmaz, bu yüzden
+    gerçek örnek çalışırken de güvenle koşar: Alt+Tab'a basmadan çizimi, sırayı ve gezinmeyi
+    doğrulamak için vardır.
+    """
+    if not Gtk.init_check()[0]:
+        print(L_.display_missing, file=sys.stderr)
+        return 3
+    switcher = Switcher(debug=True)
+    switcher.entries = switcher.windows.refresh()
+    if not switcher.entries:
+        print(L_.no_windows, file=sys.stderr)
+        return 0
+    switcher.selected = initial_index(len(switcher.entries))
+    switcher.show_panel()
+    print(f"panel demo: {len(switcher.entries)} window(s), {seconds}s", flush=True)
+
+    state = {"ticks": 0, "max": max(1, int(seconds * 2))}
+
+    def tick():
+        state["ticks"] += 1
+        if state["ticks"] > state["max"]:
+            switcher.panel.hide()
+            Gtk.main_quit()
+            return False
+        switcher.on_cycle(1)
+        print(f"selected: {switcher.selected} {switcher.entries[switcher.selected].title!r}", flush=True)
+        return True
+
+    GLib.timeout_add(500, tick)
+    Gtk.main()
+    return 0
+
+
 def print_windows():
     """Diagnostic mode: dump the window list without installing the hotkey.
     Teşhis modu: kanca kurmadan pencere listesini dök."""
@@ -143,6 +181,14 @@ def main(argv=None):
         help="print the window list and exit / pencere listesini yaz ve çık",
     )
     parser.add_argument("--debug", action="store_true", help="verbose logging / ayrıntılı günlük")
+    parser.add_argument(
+        "--demo-panel",
+        nargs="?",
+        type=int,
+        const=5,
+        metavar="SECONDS",
+        help="show the panel without grabbing the hotkey / kanca kurmadan paneli göster",
+    )
     args = parser.parse_args(argv)
 
     if args.version:
@@ -150,6 +196,8 @@ def main(argv=None):
         return 0
     if args.print_windows:
         return print_windows()
+    if args.demo_panel:
+        return demo_panel(args.demo_panel)
     if not os.environ.get("DISPLAY"):
         print(L_.display_missing, file=sys.stderr)
         return 3

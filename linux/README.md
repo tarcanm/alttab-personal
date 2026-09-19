@@ -21,11 +21,13 @@ yazıldı. Yeni paket gerekmez: Debian/Fluxbox masaüstünde zaten olanı kullan
 ## Run / Çalıştırma
 
 ```bash
-bash setup-fluxbox.sh    # Fluxbox: free Alt+Tab, install, autostart, start / Alt+Tab'ı al, kur, başlat
-./run.sh                 # start the switcher / değiştiriciyi başlat
-./run.sh --print-windows # dump the window list and exit / listeyi yaz ve çık
+bash setup-fluxbox.sh            # Fluxbox: free Alt+Tab, install, autostart / Alt+Tab'ı al, kur
+bash setup-fluxbox.sh --start    # ...and start the app / ...ve uygulamayı başlat
+./run.sh                         # start the switcher / değiştiriciyi başlat
+./run.sh --print-windows         # dump the window list and exit / listeyi yaz ve çık
+./run.sh --demo-panel 5          # show the panel for 5s without grabbing the key / tuşu al- madan paneli göster
 ./run.sh --version
-python3 tests/test_logic.py   # offline tests, no X11 needed / çevrimdışı testler
+python3 tests/test_logic.py      # offline tests, no X11 needed / çevrimdışı testler
 ```
 
 Autostart: copy `alttab-personal.desktop` to `~/.config/autostart/`, or add

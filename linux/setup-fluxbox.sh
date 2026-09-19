@@ -21,6 +21,10 @@ set -u
 
 SRC="${SRC:-$(cd "$(dirname "$0")" && pwd)}"
 DEST="$HOME/.alttab-linux"
+START_APP=0
+for arg in "$@"; do
+    [ "$arg" = "--start" ] && START_APP=1
+done
 
 echo "== 1/5 X access for Hermes (this session only) / Hermes icin X erisimi (sadece bu oturum)"
 xhost +SI:localuser:hermes-host || echo "   xhost failed / basarisiz"
@@ -28,21 +32,26 @@ xhost +SI:localuser:hermes-host || echo "   xhost failed / basarisiz"
 echo "== 2/5 Free Alt+Tab from Fluxbox / Alt+Tab'i Fluxbox'tan al"
 KEYS="$HOME/.fluxbox/keys"
 mkdir -p "$HOME/.fluxbox"
-if [ -f "$KEYS" ]; then
-    cp -a "$KEYS" "$KEYS.bak-$(date +%Y%m%d-%H%M%S)"
+if [ ! -f "$KEYS" ]; then
+    # Do NOT invent a minimal keys file: that would drop every compiled-in default binding
+    # (Alt+F1 root menu, workspace keys, ...). We only edit it when it exists.
+    # Minimal bir keys dosyasi UYDURMUYORUZ: o zaman Fluxbox'un derlenmis varsayilan baglamalari
+    # (Alt+F1 menu, calisma alani tuslari...) kaybolur. Sadece var olan dosyayi duzenliyoruz.
+    echo "   ~/.fluxbox/keys not found / yok. Fluxbox compiled defaults are in use;"
+    echo "   skipping the key edit. If the app cannot grab Alt+Tab, start Fluxbox once so it"
+    echo "   writes ~/.fluxbox/keys, then run this script again."
+    echo "   (Turkce) keys dosyasi yok, tus duzenlemesi atlandi; uygulama Alt+Tab'i alamazsa"
+    echo "   Fluxbox'u bir kez baslatip dosyanin olusmasini sagla, sonra betigi tekrar calistir."
 else
-    : > "$KEYS"
+    cp -a "$KEYS" "$KEYS.bak-$(date +%Y%m%d-%H%M%S)"
+    # Remove (comment out) any Mod1+Tab binding so Fluxbox no longer grabs the combination.
+    # Commenting rather than replacing, so the original line stays readable in the file.
+    # Fluxbox kombinasyonu tutmasin diye Mod1+Tab baglamalarini yorum satirina cevir.
+    sed -i -E '/^[[:space:]]*#/!{/^[[:space:]]*Mod1[^:]*Tab[[:space:]]*:/s/^/# alt-tab-personal: /}' "$KEYS"
+    echo "   backup / yedek: $(ls -t "$KEYS".bak-* 2>/dev/null | head -1)"
+    LEFT=$(grep -cE '^[[:space:]]*Mod1[^:]*Tab[[:space:]]*:' "$KEYS" 2>/dev/null || true)
+    echo "   remaining Mod1+Tab bindings / kalan baglama: ${LEFT:-0}"
 fi
-sed -i -E 's|^([[:space:]]*)(Mod1[[:space:]]+Tab[[:space:]]*:)|# alt-tab-personal: \1\2|' "$KEYS"
-if ! grep -qE '^Mod1[[:space:]]+Tab[[:space:]]*:' "$KEYS"; then
-    {
-        echo ""
-        echo "# AltTab Personal owns Alt+Tab / Alt+Tab artik AltTab Personal'a ait"
-        echo "Mod1 Tab :ExecCommand /bin/true"
-        echo "Mod1 Shift Tab :ExecCommand /bin/true"
-    } >> "$KEYS"
-fi
-echo "   backup / yedek: $(ls -t "$KEYS".bak-* 2>/dev/null | head -1)"
 fluxbox-remote reconfig >/dev/null 2>&1 || killall -HUP fluxbox 2>/dev/null || true
 sleep 1
 
@@ -69,17 +78,23 @@ else
 fi
 
 echo "== 5/5 Start / Baslat"
-pkill -f 'alttab_personal.py' 2>/dev/null
-sleep 0.3
-setsid nohup "$DEST/run.sh" --debug > "$DEST/alttab.log" 2>&1 &
-sleep 2
-if pgrep -f 'alttab_personal.py' >/dev/null 2>&1; then
-    echo "   running / calisiyor (log: ~/.alttab-linux/alttab.log)"
-    tail -3 "$DEST/alttab.log"
+if [ "$START_APP" = "1" ]; then
+    pkill -f 'alttab_personal.py' 2>/dev/null
+    sleep 0.3
+    setsid nohup "$DEST/run.sh" --debug > "$DEST/alttab.log" 2>&1 &
+    sleep 2
+    if pgrep -f 'alttab_personal.py' >/dev/null 2>&1; then
+        echo "   running / calisiyor (log: ~/.alttab-linux/alttab.log)"
+        tail -3 "$DEST/alttab.log"
+    else
+        echo "   NOT RUNNING / BASLAMADI - log:"
+        tail -10 "$DEST/alttab.log"
+    fi
 else
-    echo "   NOT RUNNING / BASLAMADI - log:"
-    tail -10 "$DEST/alttab.log"
+    echo "   app NOT started yet (Hermes runs the live test first) /"
+    echo "   uygulama henuz baslatilmadi (once Hermes canli testi yapacak)"
 fi
 echo ""
-echo "Test: hold Alt, press Tab. / Test: Alt basili tut, Tab'a bas."
 echo "Paste this output back to Hermes. / Bu ciktiyi Hermes'e yapistir."
+echo "Later, start it yourself with: / Sonra kendin baslat:"
+echo "  $DEST/run.sh &        # or re-run this script with --start / ya da bu betigi --start ile calistir"
