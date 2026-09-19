@@ -27,7 +27,24 @@ for arg in "$@"; do
 done
 
 echo "== 1/5 X access for Hermes (this session only) / Hermes icin X erisimi (sadece bu oturum)"
-xhost +SI:localuser:hermes-host || echo "   xhost failed / basarisiz"
+if xhost +SI:localuser:hermes-host 2>/dev/null; then
+    echo "   xhost: granted / verildi"
+else
+    echo "   xhost: failed / basarisiz"
+fi
+# Fallback: export the display cookie to a temp file. Hermes uses it as XAUTHORITY.
+# Delete it when the test is over: rm /tmp/alttab-xauth
+# Yedek yol: ekran cerezini gecici dosyaya cikar. Hermes bunu XAUTHORITY olarak kullanir.
+# Test bitince sil: rm /tmp/alttab-xauth
+if xauth extract /tmp/alttab-xauth :0 2>/dev/null; then
+    chmod 644 /tmp/alttab-xauth
+    echo "   xauth cookie: /tmp/alttab-xauth (mode 644)"
+else
+    echo "   xauth extract: failed / basarisiz"
+fi
+echo "   xhost list / erisim listesi:"
+xhost 2>/dev/null | sed 's/^/     /'
+echo "   DISPLAY=$DISPLAY  XAUTHORITY=${XAUTHORITY:-<varsayilan>}"
 
 echo "== 2/5 Free Alt+Tab from Fluxbox / Alt+Tab'i Fluxbox'tan al"
 KEYS="$HOME/.fluxbox/keys"
