@@ -1,5 +1,9 @@
 import AppKit
 
+/// Owns the status bar item, the permission flow and the wiring between the hotkey monitor and
+/// the switcher controller.
+///
+/// Menü çubuğu simgesini, izin akışını ve kanca ile denetleyici arasındaki bağlantıları yönetir.
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let controller = SwitcherController()
@@ -23,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         permissionTimer?.invalidate()
     }
 
-    // MARK: - Kurulum
+    // MARK: - Setup / Kurulum
 
     private func wireHotKeys() {
         hotKeys.onFirstSummon = { [weak self] in
@@ -51,19 +55,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.toolTip = "AltTab Personal"
 
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "⌥ + Tab ile pencereler arasında gezin", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L.menuHint, action: nil, keyEquivalent: ""))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Permissions…", action: #selector(openPermissions), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Logları aç", action: #selector(openLog), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L.menuPermissions, action: #selector(openPermissions), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L.menuLogs, action: #selector(openLog), keyEquivalent: ""))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Çıkış", action: #selector(quit), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: L.menuQuit, action: #selector(quit), keyEquivalent: "q"))
         for menuItem in menu.items where menuItem.action != nil { menuItem.target = self }
 
         item.menu = menu
         statusItem = item
     }
 
-    /// İzin verilene kadar (veya 60 sn boyunca) her 2 saniyede kontrol et, verilince kancayı yeniden kur.
+    /// Poll every 2 seconds until the permission is granted, then re-create the event tap.
+    /// İzin verilene kadar her 2 saniyede kontrol et, verilince kancayı yeniden kur.
     private func startPermissionWatch() {
         permissionTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] timer in
             guard let self else { return }
@@ -76,7 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // MARK: - Menü eylemleri
+    // MARK: - Menu actions / Menü eylemleri
 
     @objc private func openPermissions() {
         Permissions.openAccessibilitySettings()

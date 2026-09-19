@@ -1,10 +1,14 @@
 import AppKit
 import ApplicationServices
 
+/// Collects open windows through the Accessibility API.
+/// Note: returns an empty list when the Accessibility permission is missing (it does not throw).
+///
 /// AX API üzerinden açık pencereleri toplar.
 /// Not: Erişilebilirlik izni yoksa boş liste döner (hata vermez).
 enum WindowEnumerator {
 
+    /// Window list with the frontmost application's windows first.
     /// En öndeki uygulamanın pencereleri başta olacak şekilde pencere listesi.
     static func list() -> [WindowInfo] {
         let myPID = ProcessInfo.processInfo.processIdentifier
@@ -23,7 +27,7 @@ enum WindowEnumerator {
 
             let info = windows.map { win in
                 WindowInfo(pid: pid,
-                           appName: app.localizedName ?? "Uygulama",
+                           appName: app.localizedName ?? L.application,
                            appIcon: app.icon,
                            title: win.title,
                            isMinimized: win.isMinimized,
@@ -36,7 +40,7 @@ enum WindowEnumerator {
         return front + rest
     }
 
-    // MARK: - Private
+    // MARK: - Private / Özel
 
     private struct RawWindow {
         let element: AXUIElement
@@ -52,11 +56,13 @@ enum WindowEnumerator {
 
         var result: [RawWindow] = []
         for element in raw {
-            // Sadece gerçek pencere rollerini al (sheet, popover, dialog alt pencereleri hariç tutulur).
+            // Only real window roles (sheets, popovers and child dialogs are skipped).
+            // Sadece gerçek pencere rollerini al (sheet, popover ve alt diyaloglar atlanır).
             let role = (copyAttribute(element, kAXRoleAttribute as String) as? String) ?? ""
             if !role.isEmpty, role != (kAXWindowRole as String) { continue }
 
-            // Çok küçük pencereleri (araç pencereleri, HUD) ele.
+            // Skip very small windows (tool palettes, HUDs).
+            // Çok küçük pencereleri (araç paletleri, HUD) ele.
             if let size = size(of: element), size.width < 200 || size.height < 120 { continue }
 
             let title = (copyAttribute(element, kAXTitleAttribute as String) as? String) ?? ""

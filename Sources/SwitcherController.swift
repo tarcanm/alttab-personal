@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 
+/// Selection state and raising windows.
 /// Seçim durumu ve pencere öne getirme.
 final class SwitcherController {
 
@@ -10,7 +11,7 @@ final class SwitcherController {
     private var isShowing = false
     private var summonScreen: NSScreen?
 
-    // MARK: - Dışarıdan çağrılan akış
+    // MARK: - Flow called from the hotkey monitor / Kancadan çağrılan akış
 
     func handleFirstSummon() {
         summonScreen = NSScreen.main
@@ -19,7 +20,8 @@ final class SwitcherController {
             NSSound.beep()
             return
         }
-        // İlk basışta Windows mantığı: bir sonraki pencere (index 1)
+        // Windows behaviour on the first press: select the next window (index 1).
+        // İlk basışta Windows mantığı: bir sonraki pencere (index 1).
         selectedIndex = windows.count > 1 ? 1 : 0
         show()
     }
@@ -40,7 +42,7 @@ final class SwitcherController {
         hide()
     }
 
-    // MARK: - İç işleyiş
+    // MARK: - Internals / İç işleyiş
 
     private func refresh() {
         windows = WindowEnumerator.list()
@@ -68,16 +70,19 @@ final class SwitcherController {
     private func activate(_ window: WindowInfo) {
         guard let app = NSRunningApplication(processIdentifier: window.pid) else { return }
 
-        // Küçültülmüşse geri aç
+        // Un-minimize if needed.
+        // Küçültülmüşse geri aç.
         if window.isMinimized {
             AXUIElementSetAttributeValue(window.axWindow, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
         }
 
-        // Pencereyi öne getir
+        // Raise the window.
+        // Pencereyi öne getir.
         AXUIElementPerformAction(window.axWindow, kAXRaiseAction as CFString)
         AXUIElementSetAttributeValue(window.axWindow, kAXMainAttribute as CFString, kCFBooleanTrue)
 
-        // Uygulamayı aktive et
+        // Activate the owning application.
+        // Uygulamayı aktive et.
         app.activate(options: [.activateIgnoringOtherApps])
     }
 }

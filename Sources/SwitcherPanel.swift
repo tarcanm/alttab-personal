@@ -1,5 +1,6 @@
 import AppKit
 
+/// Panel that shows the window list. Borderless, floating, above all Spaces and full-screen apps.
 /// Pencere listesini gösteren panel. Borderless, floating, tüm Spaces ve tam ekran uygulamaların üstünde.
 final class SwitcherPanel: NSPanel {
 
@@ -27,6 +28,8 @@ final class SwitcherPanel: NSPanel {
         isMovableByWindowBackground = false
         animationBehavior = .none
 
+        // Blurred background like a popover.
+        // Popover gibi bulanık arka plan.
         effectView.material = .popover
         effectView.blendingMode = .behindWindow
         effectView.state = .active
@@ -48,19 +51,24 @@ final class SwitcherPanel: NSPanel {
         contentView = effectView
     }
 
+    // The panel never takes focus; the event tap handles all keys.
+    // Panel hiç odak almaz; tuşları event tap yönetir.
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    // MARK: - Gösterim
+    // MARK: - Rendering / Gösterim
 
     func render(windows: [WindowInfo], selectedIndex: Int) {
-        // Önceki render'dan kalan her şeyi temizle (satırlar, boşluk, ipucu etiketi)
+        // Clear everything from the previous render (rows, spacer, hint label).
+        // Önceki render'dan kalan her şeyi temizle (satırlar, boşluk, ipucu etiketi).
         for view in stack.arrangedSubviews {
             stack.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
         rows.removeAll()
 
+        // Keep the selected row in the middle of the visible window.
+        // Seçili satırı görünür pencerenin ortasında tut.
         let start = max(0, min(selectedIndex - maxVisibleRows / 2, windows.count - maxVisibleRows))
         let end = min(windows.count, start + maxVisibleRows)
         let visible = Array(windows[start..<end])
@@ -77,9 +85,9 @@ final class SwitcherPanel: NSPanel {
         setContentSize(NSSize(width: panelWidth, height: max(height, 80)))
 
         if windows.count > maxVisibleRows {
-            stack.addArrangedSubview(hintLabel("\(windows.count) pencere, \(visible.count) tanesi gösteriliyor"))
+            stack.addArrangedSubview(hintLabel(L.windowCount(total: windows.count, shown: visible.count)))
         }
-        stack.addArrangedSubview(hintLabel("⌥ basılı tut · Tab/←→ gez · bırak = seç · Esc iptal"))
+        stack.addArrangedSubview(hintLabel(L.navigationHint))
     }
 
     private func hintLabel(_ text: String) -> NSTextField {
@@ -89,6 +97,8 @@ final class SwitcherPanel: NSPanel {
         return label
     }
 
+    /// Centers the panel on the given screen (or the main screen).
+    /// Paneli verilen ekranda (yoksa ana ekranda) ortalar.
     func showPanel(centeredOn screen: NSScreen?) {
         let target = screen ?? NSScreen.main
         guard let frame = target?.visibleFrame else { show(); return }
@@ -100,6 +110,7 @@ final class SwitcherPanel: NSPanel {
     }
 }
 
+/// One row: app icon + window title + app name.
 /// Tek satır: uygulama simgesi + pencere başlığı + uygulama adı.
 private final class RowView: NSView {
 
@@ -122,7 +133,8 @@ private final class RowView: NSView {
         title.textColor = isSelected ? .white : .labelColor
         title.lineBreakMode = .byTruncatingTail
 
-        let app = NSTextField(labelWithString: window.isMinimized ? "\(window.appName) (küçültülmüş)" : window.appName)
+        let subtitle = window.isMinimized ? "\(window.appName) (\(L.minimized))" : window.appName
+        let app = NSTextField(labelWithString: subtitle)
         app.font = .systemFont(ofSize: 11)
         app.textColor = isSelected ? NSColor.white.withAlphaComponent(0.8) : .secondaryLabelColor
 
@@ -145,5 +157,7 @@ private final class RowView: NSView {
         heightAnchor.constraint(equalToConstant: 34).isActive = true
     }
 
-    required init?(coder: NSCoder) { fatalError("init(coder:) desteklenmiyor") }
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported / desteklenmiyor")
+    }
 }

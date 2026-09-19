@@ -56,8 +56,8 @@ Signing with a local developer certificate, to keep the TCC identity stable, is 
 - **The list is empty:** Accessibility permission is missing. Use the menu bar item → *Permissions…*.
 - **`⌥ + Tab` does nothing:** another app may already own that combination. Making the shortcut
   configurable is on the roadmap.
-- **Panel missing over a full-screen app:** the panel is declared `fullScreenAuxiliary`; if a specific
-  app still hides it, please open an issue (see below).
+- **Panel missing over a full-screen app:** the panel is declared `fullScreenAuxiliary`; a few games
+  with their own full-screen mode may still hide it. That is a known limitation of the published v0.1.
 
 ## Project layout
 
@@ -71,12 +71,23 @@ Sources/
   HotKeyMonitor.swift      global ⌥+Tab hook via CGEventTap
   SwitcherPanel.swift      list panel (NSVisualEffectView + NSStackView)
   SwitcherController.swift selection state, raising windows
+  L.swift                  tiny localization helper (English first, Turkish second)
 Info.plist                 LSUIElement, bundle metadata
 Makefile                   swiftc build into a .app bundle + ad-hoc signing
 project.yml                optional XcodeGen project
-docs/PLAN.md               roadmap and known limitations (Turkish)
-docs/PUBLISH.md            release checklist (Turkish)
+docs/PLAN.md               roadmap and known limitations (bilingual)
+docs/PUBLISH.md            release checklist (bilingual)
 ```
+
+## Language / Dil
+
+Everything in this repository is written twice: **English first, Turkish second**. Source comments,
+`docs/PLAN.md` and this README follow that order. The app's own labels come from `Sources/L.swift` and
+follow the macOS preferred language: Turkish when it starts with `tr`, otherwise English.
+
+Bu repodaki her şey iki dilde yazılıdır: **önce İngilizce, sonra Türkçe**. Kaynak kod yorumları,
+`docs/PLAN.md` ve bu README aynı sırayı izler. Uygulamanın etiketleri `Sources/L.swift` içinden gelir ve
+macOS'un tercih edilen diline uyar: dil `tr` ile başlıyorsa Türkçe, aksi halde İngilizce.
 
 ## Roadmap
 
@@ -93,10 +104,3 @@ docs/PUBLISH.md            release checklist (Turkish)
 
 This is a personal project published as-is. There is no support commitment, and issues are disabled;
 feel free to fork it and adapt it to your own machine.
-
----
-
-### Türkçe notlar
-
-Kişisel kullanım için yazılmış bir araç. Yol haritası, mimari kararlar ve bilinen sınırlar
-`docs/PLAN.md` içinde Türkçe olarak duruyor.
