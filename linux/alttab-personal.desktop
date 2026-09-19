@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=AltTab Personal
+Name[tr]=AltTab Personal
+Comment=Windows-style Alt+Tab window switcher / Windows tarzı Alt+Tab pencere değiştirici
+Comment[tr]=Windows tarzı Alt+Tab pencere değiştirici
+Exec=run.sh
+Icon=preferences-system-windows
+Terminal=false
+Categories=Utility;
+X-GNOME-Autostart-enabled=true

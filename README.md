@@ -1,7 +1,13 @@
 # AltTab Personal
 
-A small, dependency-free macOS window switcher with Windows-style `⌥ Option + Tab` behaviour.
-Written from scratch in Swift/AppKit. No App Store, no sandbox, no notarization, no telemetry.
+A small, dependency-free window switcher with Windows-style behaviour: hold the modifier, press Tab,
+release to switch. Two implementations of the same behaviour:
+
+- **macOS:** `⌥ Option + Tab`, Swift and AppKit, in `Sources/`
+- **Linux (X11):** `Alt + Tab`, Python 3 with GTK 3, libwnck and python-xlib, in `linux/`
+
+Written from scratch. No App Store, no sandbox, no notarization, no telemetry, and no extra packages
+on Linux.
 
 I built this for my own daily use, and I am publishing it because a lightweight, readable
 alternative is sometimes more useful than a large one.
@@ -77,6 +83,7 @@ Makefile                   swiftc build into a .app bundle + ad-hoc signing
 project.yml                optional XcodeGen project
 docs/PLAN.md               roadmap and known limitations (bilingual)
 docs/PUBLISH.md            release checklist (bilingual)
+linux/                     Alt+Tab switcher for X11 (Python), see linux/README.md
 ```
 
 ## Language / Dil
@@ -89,11 +96,28 @@ Bu repodaki her şey iki dilde yazılıdır: **önce İngilizce, sonra Türkçe*
 `docs/PLAN.md` ve bu README aynı sırayı izler. Uygulamanın etiketleri `Sources/L.swift` içinden gelir ve
 macOS'un tercih edilen diline uyar: dil `tr` ile başlıyorsa Türkçe, aksi halde İngilizce.
 
+## Linux (X11)
+
+The same behaviour on Linux, developed on Fluxbox but not tied to it:
+
+```bash
+cd linux
+./run.sh                  # start the switcher
+./run.sh --print-windows  # dump the window list and exit
+python3 tests/test_logic.py
+```
+
+It needs `python3-gi`, `gir1.2-wnck-3.0` and `python3-xlib`, which a Debian 12 / MX 23 desktop already
+ships. One caveat: Fluxbox binds `Mod1 Tab` to `NextWindow`, and X hands a key combination to a single
+client, so that binding has to be neutralised first. `linux/README.md` explains the rest.
+
 ## Roadmap
 
 - **v0.2:** most-recently-used ordering, thumbnail previews (ScreenCaptureKit, Screen Recording permission)
 - **v0.3:** type-to-search, configurable shortcut, multi-display panel placement
 - **v0.4:** close/minimize shortcuts, excluded-apps list
+- **Linux:** true MRU ordering, mouse clicks on rows, thumbnails when a compositor is running,
+  per-monitor panels
 
 ## License
 
