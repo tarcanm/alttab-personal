@@ -100,9 +100,9 @@ class Switcher:
             self.log("hotkey unavailable:", exc)
             print(self.l.grab_unavailable, file=sys.stderr)
             return 2
-        except Exception as exc:  # X connection problems / X bağlantı sorunları
-            self.log("hotkey error:", exc)
-            print(self.l.display_missing, file=sys.stderr)
+        except Exception as exc:  # X connection problems and bugs / X bağlantı sorunları ve hatalar
+            self.log("startup error:", exc)
+            print(self.l.startup_failed(exc), file=sys.stderr)
             return 3
 
         print(self.l.started, flush=True)

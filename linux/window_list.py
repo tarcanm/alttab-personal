@@ -17,12 +17,12 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("Wnck", "3.0")
 
-from gi.repository import Gdk, GdkPixbuf, Gtk, Wnck  # noqa: E402
+from gi.repository import Gdk, GdkPixbuf, Wnck  # noqa: E402
 from Xlib import X as XlibX  # noqa: E402
 from Xlib import display as xdisplay  # noqa: E402
 
 from l import L_  # noqa: E402
-from logic import clamp_label  # noqa: E402
+from logic import app_name_is_useless, clamp_label, humanize_app_name  # noqa: E402
 
 STACKING_ATOM = "_NET_CLIENT_LIST_STACKING"
 ICON_SIZE = 20
@@ -112,11 +112,51 @@ class WindowList:
         entries = [self._entry(window) for window in ordered]
         return [entry for entry in entries if entry is not None]
 
+    def _app_name(self, window, title):
+        """Application name, with a WM_CLASS fallback.
+
+        libwnck sometimes reports the window title as the application name (Chrome did on this
+        machine), which made the panel print the same text twice. When that happens, fall back to
+        WM_CLASS, which is always set.
+
+        Uygulama adı, WM_CLASS yedeğiyle. libwnck bazen uygulama adı olarak pencere başlığını
+        verir (bu makinede Chrome öyleydi) ve panel aynı metni iki kez yazar. O durumda her zaman
+        tanımlı olan WM_CLASS'a düşeriz.
+        """
+        name = ""
+        try:
+            application = window.get_application()
+            if application is not None:
+                name = clamp_label(application.get_name() or "")
+        except Exception:
+            name = ""
+        if name and not app_name_is_useless(name, title):
+            return name
+        from_class = self._wm_class(window.get_xid())
+        return from_class or name or self.l.application
+
+    def _wm_class(self, xid):
+        """Read WM_CLASS for a window, e.g. b"google-chrome\0Google-chrome\0".
+
+        Bir pencerenin WM_CLASS değerini oku.
+        """
+        try:
+            window = self._xdpy.create_resource_object("window", xid)
+            prop = window.get_full_property(self._xdpy.intern_atom("WM_CLASS"), XlibX.AnyPropertyType)
+            if prop is None:
+                return ""
+            raw = prop.value
+            if isinstance(raw, bytes):
+                parts = [part for part in raw.split(b"\x00") if part]
+                raw = parts[-1].decode("utf-8", "replace") if parts else ""
+            return humanize_app_name(str(raw))
+        except Exception:
+            return ""
+
     def _entry(self, window):
         try:
             title = clamp_label(window.get_name() or "")
-            application = window.get_application()
-            app_name = clamp_label(application.get_name() if application else "") or self.l.application
+            app_name = self._app_name(window, title)
             if not title:
                 title = f"{app_name} ({self.l.untitled_window})"
             return WindowEntry(
@@ -144,12 +184,29 @@ class WindowList:
 
     # MARK: - Activation / Aktivasyon
 
+    def server_time(self):
+        """Current X server time, needed when no key event gave us one.
+
+        Anahtar olayı zaman damgası vermediyse gereken güncel X sunucu zamanı.
+        """
+        try:
+            gi.require_version("GdkX11", "3.0")
+            from gi.repository import GdkX11
+
+            return int(GdkX11.x11_get_server_time(Gdk.get_default_root_window()))
+        except Exception:
+            return 0
+
     def activate(self, entry, timestamp=0):
         """Raise and focus the window. Returns True on success.
         Pencereyi öne al ve odakla. Başarılıysa True döner."""
         window = getattr(entry, "window", None)
         if window is None:
             return False
+        if not timestamp:
+            # A zero timestamp makes some window managers ignore the request.
+            # Sıfır zaman damgasını bazı pencere yöneticileri yok sayar.
+            timestamp = self.server_time()
         try:
             if entry.minimized:
                 window.unminimize(int(timestamp))

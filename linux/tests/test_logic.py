@@ -10,8 +10,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from l import L, _detect_turkish  # noqa: E402
 from logic import (  # noqa: E402
+    app_name_is_useless,
     clamp_label,
     cycle_index,
+    humanize_app_name,
     initial_index,
     is_auto_repeat,
     visible_range,
@@ -61,6 +63,30 @@ class TestLabels(unittest.TestCase):
 
     def test_none_is_empty(self):
         self.assertEqual(clamp_label(None), "")
+
+
+class TestAppName(unittest.TestCase):
+    def test_wm_class_is_humanized(self):
+        self.assertEqual(humanize_app_name("google-chrome"), "Google Chrome")
+        self.assertEqual(humanize_app_name("rustdesk"), "Rustdesk")
+        self.assertEqual(humanize_app_name("org.gnome.Nautilus"), "Nautilus")
+        self.assertEqual(humanize_app_name("RustDesk"), "RustDesk")
+
+    def test_missing_class_falls_back(self):
+        self.assertEqual(humanize_app_name("", "Application"), "Application")
+        self.assertEqual(humanize_app_name("   "), "")
+
+    def test_title_echo_is_detected(self):
+        self.assertTrue(app_name_is_useless("mfta@dark: ~", "mfta@dark: ~"))
+        self.assertTrue(app_name_is_useless("", "Thunar"))
+        self.assertTrue(app_name_is_useless("x" * 45, "short title"))
+        self.assertFalse(app_name_is_useless("Thunar", "mfta - Thunar"))
+
+
+class TestBidiControls(unittest.TestCase):
+    def test_invisible_controls_are_stripped(self):
+        self.assertEqual(clamp_label("a\u202ab\u202cc"), "abc")
+        self.assertEqual(clamp_label("\u202a hello \u2069"), "hello")
 
 
 class TestAutoRepeat(unittest.TestCase):

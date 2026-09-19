@@ -72,6 +72,9 @@ class L:
             "X ekranı yok. Bunu grafik oturumunun içinde çalıştır (DISPLAY tanımlı olmalı).",
         )
 
+    def startup_failed(self, error):
+        return self.pick(f"Could not start: {error}", f"Başlatılamadı: {error}")
+
     @property
     def started(self):
         return self.pick("AltTab Personal (Linux) is running. Hold Alt and press Tab.",

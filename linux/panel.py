@@ -57,13 +57,16 @@ class Row(Gtk.Box):
         subtitle = entry.app_name
         if entry.minimized:
             subtitle = f"{subtitle} ({l.minimized})"
-        app = Gtk.Label(label=subtitle, xalign=0.0)
-        app.get_style_context().add_class("app")
-        if selected:
-            app.get_style_context().add_class("selected")
-
+        if subtitle.strip().lower() == entry.display_title.strip().lower():
+            # Do not print the same text twice / Aynı metni iki kez yazma
+            subtitle = ""
         texts.pack_start(title, False, False, 0)
-        texts.pack_start(app, False, False, 0)
+        if subtitle:
+            app = Gtk.Label(label=subtitle, xalign=0.0)
+            app.get_style_context().add_class("app")
+            if selected:
+                app.get_style_context().add_class("selected")
+            texts.pack_start(app, False, False, 0)
         self.pack_start(texts, True, True, 0)
 
 
@@ -80,6 +83,11 @@ class SwitcherPanel:
         self.window.set_focus_on_map(False)
         self.window.set_type_hint(Gdk.WindowTypeHint.UTILITY)
         self.window.set_position(Gtk.WindowPosition.NONE)
+        # Identify our own window: it never appears in the list, but this makes it easy to spot
+        # in window listings while debugging.
+        # Kendi penceremizi tanımla: listede hiç görünmez ama hata ayıklarken bulmayı kolaylaştırır.
+        self.window.set_title("AltTab Personal")
+        self.window.set_wmclass("alttab-personal", "AltTabPersonal")
         self.window.connect("delete-event", lambda *_: True)
 
         self.container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)

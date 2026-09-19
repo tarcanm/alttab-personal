@@ -36,6 +36,28 @@ Autostart: copy `alttab-personal.desktop` to `~/.config/autostart/`, or add
 Otomatik başlatma: `alttab-personal.desktop` dosyasını `~/.config/autostart/` altına kopyala, ya da
 `~/.fluxbox/startup` içine `~/.alttab-linux/run.sh &` satırını ekle.
 
+## Testing / Test
+
+```bash
+python3 tests/test_logic.py        # pure helpers, no X11 / saf yardımcılar, X11 yok
+python3 tests/test_imports.py      # every module imports / tüm modüller import edilebilir
+python3 tests/test_hotkey_logic.py # key routing with fake events / sahte olaylarla tuş yönlendirme
+python3 tests/flow_check.py [i]    # real display: raise window i / gerçek ekran: i'inci pencereyi öne al
+python3 -m doctest logic.py        # doctests inside logic.py / logic.py içindeki doctestler
+./run.sh --print-windows           # dump the live window list / canlı pencere listesini yaz
+./run.sh --demo-panel 5            # show the panel without the hotkey / kanca olmadan paneli göster
+```
+
+**What the tests do not cover / Testlerin kapsamadığı yer:** key injection cannot verify the hotkey.
+On X.Org 21 the XTest-generated events used by automation tools do not activate a passive
+`XGrabKey` grab at all (verified here: even a modifier-less `F9` grab received nothing), so the
+"press Alt+Tab" path has to be checked by hand. Everything downstream of the grab (start, cycle,
+commit, cancel, alt-release, auto-repeat) is covered by `tests/test_hotkey_logic.py`.
+Bu sunucuda otomasyon araçlarının kullandığı XTest olayları pasif `XGrabKey` grab'ini hiç
+tetiklemiyor (burada doğrulandı: modifier'sız `F9` grab'i bile olay almadı), bu yüzden "Alt+Tab'a
+bas" yolu elle denenmeli. Grab'den sonraki her şey (başlatma, gezinme, onaylama, iptal, Alt bırakma,
+tuş tekrarı) `tests/test_hotkey_logic.py` ile kapsanıyor.
+
 ## The Alt+Tab conflict / Alt+Tab çakışması
 
 Fluxbox binds `Mod1 Tab` to `NextWindow` from its compiled-in defaults, and X gives a key

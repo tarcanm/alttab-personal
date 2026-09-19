@@ -14,10 +14,15 @@ Why it works this way / Neden böyle:
 
 import time
 
-from Xlib import X, XK, display
-from Xlib.error import BadAccess, XError
+import gi
 
-from logic import is_auto_repeat
+gi.require_version("Gtk", "3.0")
+
+from gi.repository import GLib  # noqa: E402
+from Xlib import X, XK, display  # noqa: E402
+from Xlib.error import BadAccess, XError  # noqa: E402
+
+from logic import is_auto_repeat  # noqa: E402
 
 # Keyboard keys we care about / İlgilendiğimiz tuşlar
 KEYSYMS = {
@@ -94,16 +99,12 @@ class X11HotKey:
             if isinstance(error, BadAccess):
                 raise HotKeyUnavailable("BadAccess on Mod1+Tab grab")
 
-        import GLib
-
         self._source_id = GLib.io_add_watch(self.display.fileno(), GLib.IO_IN, self._on_x_events)
         return True
 
     def stop(self):
         """Remove the grab, release the keyboard and close the display.
         Grab'i kaldır, klavyeyi bırak ve ekranı kapat."""
-        import GLib
-
         if self._source_id is not None:
             GLib.source_remove(self._source_id)
             self._source_id = None
@@ -218,13 +219,9 @@ class X11HotKey:
     # MARK: - Alt release watchdog / Alt bırakma bekçisi
 
     def _start_poll(self):
-        import GLib
-
         self._poll_id = GLib.timeout_add(POLL_INTERVAL_MS, self._poll_alt)
 
     def _stop_poll(self):
-        import GLib
-
         if self._poll_id is not None:
             GLib.source_remove(self._poll_id)
             self._poll_id = None

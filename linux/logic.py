@@ -8,6 +8,12 @@ Saf yardımcılar: X11 ve GTK yok, bu yüzden birim testleriyle doğrulanabilir.
 # damgasıyla gelir ve yok sayılır; böylece basılı tutulan Tab listede fırlamaz.
 AUTO_REPEAT_WINDOW_MS = 30
 
+# Invisible bidi control characters (U+200E/200F, U+202A-U+202E, U+2066-U+2069) appear in some
+# window titles, for example YouTube pages, and would render as stray gaps.
+# Bazı pencere başlıklarında (ör. YouTube sayfaları) görünmez bidi kontrol karakterleri
+# (U+200E/200F, U+202A-U+202E, U+2066-U+2069) bulunur ve panelde tuhaf boşluklar bırakır.
+BIDI_CONTROLS = "\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069"
+
 # How many rows the panel shows at once.
 # Panelin aynı anda gösterdiği satır sayısı.
 MAX_VISIBLE_ROWS = 12
@@ -72,10 +78,62 @@ def clamp_label(text, max_chars=80):
     >>> clamp_label("x" * 5, 4)
     'xxx…'
     """
-    clean = " ".join((text or "").split())
+    text = (text or "").translate({ord(ch): None for ch in BIDI_CONTROLS})
+    clean = " ".join(text.split())
     if len(clean) <= max_chars:
         return clean
     return clean[: max_chars - 1] + "\u2026"
+
+
+def humanize_app_name(raw, fallback=""):
+    """Turn a WM_CLASS value into something readable.
+
+    WM_CLASS değerini okunur hale getir.
+
+    >>> humanize_app_name("google-chrome")
+    'Google Chrome'
+    >>> humanize_app_name("org.gnome.Nautilus")
+    'Nautilus'
+    >>> humanize_app_name("RustDesk")
+    'RustDesk'
+    >>> humanize_app_name("")
+    ''
+    >>> humanize_app_name("", "Application")
+    'Application'
+    """
+    name = (raw or "").strip()
+    if not name:
+        return fallback
+    if "." in name:  # reverse-DNS class such as org.gnome.Nautilus / ters-DNS sınıfı
+        name = name.split(".")[-1]
+    words = []
+    for word in name.replace("-", " ").replace("_", " ").split():
+        if word.islower() or word.isupper():
+            words.append(word.capitalize())
+        else:
+            words.append(word)  # keep intentional casing / bilinçli yazımı koru
+    return " ".join(words)
+
+
+def app_name_is_useless(name, title):
+    """Does libwnck's application name look like it just echoed the window title?
+
+    libwnck'in uygulama adı sadece pencere başlığını mı tekrarlamış?
+
+    >>> app_name_is_useless("mfta@dark: ~", "mfta@dark: ~")
+    True
+    >>> app_name_is_useless("Thunar", "mfta - Thunar")
+    False
+    >>> app_name_is_useless("", "Thunar")
+    True
+    >>> app_name_is_useless("x" * 45, "some window")
+    True
+    """
+    if not name:
+        return True
+    if name.strip().lower() == (title or "").strip().lower():
+        return True
+    return len(name) > 40  # window titles are long, application names are not / başlıklar uzundur
 
 
 def is_auto_repeat(prev_keycode, prev_time, keycode, time):
