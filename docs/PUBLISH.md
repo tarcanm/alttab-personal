@@ -1,12 +1,20 @@
 # Flipping the repo to public / Repoyu public'e çevirme
 
-Decision (2026-09-19): **MIT license** + **public after the Mac test passes**.
-Karar (19 Eyl 2026): **MIT lisans** + **Mac testi geçtikten sonra public**.
+Decision (2026-09-19): **MIT license** + **public**. The MacBook could not clone a private repo without
+extra credentials, so the flip happened first and the Mac test follows it.
+Karar (19 Eyl 2026): **MIT lisans** + **public**. MacBook, ek kimlik bilgisi olmadan private repoyu
+klonlayamıyordu; bu yüzden önce public yapıldı, Mac testi sonrasında.
 
 Preparation is already done: `LICENSE` (MIT), English-first README, `Info.plist` copyright string,
 bilingual source comments. Nothing in the code blocks the flip.
 Hazırlık tamam: `LICENSE` (MIT), İngilizce öncelikli README, `Info.plist` telif metni, iki dilli kod
 yorumları. Kodda flip'i engelleyen hiçbir şey yok.
+
+## Status: flipped to public on 2026-09-19 / Durum: 19 Eyl 2026'da public yapıldı
+
+Verified anonymously (no token): `git ls-remote https://github.com/tarcanm/alttab-personal.git` returned
+the branch list, and the web page answered `200`.
+Anonim olarak doğrulandı (token yok): `git ls-remote` dal listesini döndürdü ve web sayfası `200` yanıtı verdi.
 
 ## Flip (2 API calls) / Flip (2 API çağrısı)
 
@@ -34,11 +42,16 @@ curl -s -H "Authorization: token $TOKEN" https://api.github.com/repos/tarcanm/al
 
 ## Pre-flip checklist / Flip öncesi kontrol listesi
 
+- [x] No secrets in the repo, including the whole git history (scanned 2026-09-19: clean, and personal
+      host/user names were generalised out of the tests and the setup script)
+      / Repo'da secret yok, git geçmişi dahil (19 Eyl taraması: temiz; kişisel makine/kullanıcı adları
+      testlerden ve kurulum betiğinden çıkarıldı)
+- [x] Linux side verified on a real desktop: Alt+Tab switches windows, autostart and the modifier
+      repair survive a login / Linux tarafı gerçek masaüstünde doğrulandı
 - [ ] `make app` builds cleanly on the MacBook / MacBook'ta `make app` hatasız derlendi
 - [ ] `⌥ + Tab` works and raises the selected window / `⌥ + Tab` çalışıyor, doğru pencereyi öne getiriyor
 - [ ] The README steps work end to end (clone, build, permission, test)
       / README'deki adımlar uçtan uca çalışıyor (klon, derleme, izin, test)
-- [ ] No secrets in the repo (scan on 2026-09-19: clean) / Repo'da secret yok (19 Eyl taraması: temiz)
 
 ## After the flip (optional) / Flip sonrası (opsiyonel)
 

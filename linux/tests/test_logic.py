@@ -78,10 +78,10 @@ class TestAppName(unittest.TestCase):
         self.assertEqual(humanize_app_name("   "), "")
 
     def test_title_echo_is_detected(self):
-        self.assertTrue(app_name_is_useless("mfta@dark: ~", "mfta@dark: ~"))
+        self.assertTrue(app_name_is_useless("user@host: ~", "user@host: ~"))
         self.assertTrue(app_name_is_useless("", "Thunar"))
         self.assertTrue(app_name_is_useless("x" * 45, "short title"))
-        self.assertFalse(app_name_is_useless("Thunar", "mfta - Thunar"))
+        self.assertFalse(app_name_is_useless("Thunar", "user - Thunar"))
 
 
 class TestBidiControls(unittest.TestCase):

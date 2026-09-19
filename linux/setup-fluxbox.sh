@@ -26,21 +26,28 @@ for arg in "$@"; do
     [ "$arg" = "--start" ] && START_APP=1
 done
 
-echo "== 1/5 X access for Hermes (this session only) / Hermes icin X erisimi (sadece bu oturum)"
-if xhost +SI:localuser:hermes-host 2>/dev/null; then
-    echo "   xhost: granted / verildi"
+echo "== 1/5 Optional: X access for another local user / Istege bagli: baska bir yerel kullaniciya X erisimi"
+# Set AGENT_USER to a local user name (for example a helper account that verifies the app for you) to
+# grant it access to this display for this session. Empty by default: nothing is changed. Remove the
+# grant afterwards with: xhost -SI:localuser:USER and rm -f /tmp/alttab-xauth
+# AGENT_USER'i bir yerel kullanici adina ayarlayin (ornegin uygulamayi sizin icin dogrulayan bir
+# yardimci hesap); o zaman bu oturum icin ekrana erisim verilir. Varsayilan bos: hicbir sey degismez.
+# Sonradan kaldirmak icin: xhost -SI:localuser:KULLANICI ve rm -f /tmp/alttab-xauth
+AGENT_USER="${AGENT_USER:-}"
+if [ -z "$AGENT_USER" ]; then
+    echo "   AGENT_USER is empty, skipping / AGENT_USER bos, atlandi"
+elif xhost +SI:localuser:"$AGENT_USER" 2>/dev/null; then
+    echo "   xhost: granted to $AGENT_USER / verildi"
+    # Fallback: export the display cookie to a file the other user can read.
+    # Yedek yol: ekran cerezini diger kullanicinin okuyabilecegi dosyaya cikar.
+    if xauth extract /tmp/alttab-xauth :0 2>/dev/null; then
+        chmod 644 /tmp/alttab-xauth
+        echo "   xauth cookie: /tmp/alttab-xauth (mode 644)"
+    else
+        echo "   xauth extract: failed / basarisiz"
+    fi
 else
     echo "   xhost: failed / basarisiz"
-fi
-# Fallback: export the display cookie to a temp file. Hermes uses it as XAUTHORITY.
-# Delete it when the test is over: rm /tmp/alttab-xauth
-# Yedek yol: ekran cerezini gecici dosyaya cikar. Hermes bunu XAUTHORITY olarak kullanir.
-# Test bitince sil: rm /tmp/alttab-xauth
-if xauth extract /tmp/alttab-xauth :0 2>/dev/null; then
-    chmod 644 /tmp/alttab-xauth
-    echo "   xauth cookie: /tmp/alttab-xauth (mode 644)"
-else
-    echo "   xauth extract: failed / basarisiz"
 fi
 echo "   xhost list / erisim listesi:"
 xhost 2>/dev/null | sed 's/^/     /'

@@ -120,9 +120,9 @@ def app_name_is_useless(name, title):
 
     libwnck'in uygulama adı sadece pencere başlığını mı tekrarlamış?
 
-    >>> app_name_is_useless("mfta@dark: ~", "mfta@dark: ~")
+    >>> app_name_is_useless("user@host: ~", "user@host: ~")
     True
-    >>> app_name_is_useless("Thunar", "mfta - Thunar")
+    >>> app_name_is_useless("Thunar", "user - Thunar")
     False
     >>> app_name_is_useless("", "Thunar")
     True
