@@ -115,6 +115,24 @@ class Switcher:
         return 0
 
 
+def ensure_display():
+    """DISPLAY is often missing over SSH, from a root shell or from a launcher. Try the usual local
+    display before giving up, so the app works from anywhere as the desktop user.
+
+    DISPLAY SSH'ta, root kabuğunda veya bir başlatıcıdan gelirken çoğu zaman tanımsızdır. Vazgeçmeden
+    önce olağan yerel ekranı deneyin; böylece uygulama masaüstü kullanıcısı olarak her yerden çalışır.
+    """
+    current = os.environ.get("DISPLAY")
+    if current:
+        return current
+    for candidate in (":0", ":1"):
+        if os.path.exists(f"/tmp/.X11-unix/X{candidate[1:]}"):
+            os.environ["DISPLAY"] = candidate
+            print(L_.display_guessed(candidate), file=sys.stderr)
+            return candidate
+    return None
+
+
 def demo_panel(seconds=5):
     """Show the panel with the real window list and cycle through it, then quit.
     No hotkey is grabbed, so this is safe to run while the real instance is running:
@@ -194,13 +212,14 @@ def main(argv=None):
     if args.version:
         print(f"AltTab Personal (Linux) {VERSION}")
         return 0
+    # Every mode except --version needs a display / --version dışındaki her mod ekran gerektirir
+    if not ensure_display():
+        print(L_.display_missing, file=sys.stderr)
+        return 3
     if args.print_windows:
         return print_windows()
     if args.demo_panel:
         return demo_panel(args.demo_panel)
-    if not os.environ.get("DISPLAY"):
-        print(L_.display_missing, file=sys.stderr)
-        return 3
     return Switcher(debug=args.debug).run()
 
 

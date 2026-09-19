@@ -68,9 +68,16 @@ class L:
     @property
     def display_missing(self):
         return self.pick(
-            "No X display available. Run this inside your graphical session (DISPLAY set).",
-            "X ekranı yok. Bunu grafik oturumunun içinde çalıştır (DISPLAY tanımlı olmalı).",
+            "No X display available. Start this from a terminal inside your graphical session, "
+            "as your desktop user (not root). Over SSH use:\n"
+            "  DISPLAY=:0 XAUTHORITY=$HOME/.Xauthority ~/.alttab-linux/run.sh &",
+            "X ekranı yok. Bunu grafik oturumundaki bir terminalden, masaüstü kullanıcın olarak "
+            "(root değil) başlat. SSH üzerinden:\n"
+            "  DISPLAY=:0 XAUTHORITY=$HOME/.Xauthority ~/.alttab-linux/run.sh &",
         )
+
+    def display_guessed(self, name):
+        return self.pick(f"DISPLAY was not set, trying {name}.", f"DISPLAY tanımlı değildi, {name} deneniyor.")
 
     def startup_failed(self, error):
         return self.pick(f"Could not start: {error}", f"Başlatılamadı: {error}")
