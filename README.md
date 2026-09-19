@@ -3,7 +3,7 @@
 A small, dependency-free window switcher with Windows-style behaviour: hold the modifier, press Tab,
 release to switch. Two implementations of the same behaviour:
 
-- **macOS:** `⌥ Option + Tab`, Swift and AppKit, in `Sources/`
+- **macOS:** `⌘ Command + Tab`, Swift and AppKit, in `Sources/` (replaces the system switcher; `⌥ Option` can be restored, see below)
 - **Linux (X11):** `Alt + Tab`, Python 3 with GTK 3, libwnck and python-xlib, in `linux/`
 
 Written from scratch. No App Store, no sandbox, no notarization, no telemetry, and no extra packages
@@ -14,9 +14,9 @@ alternative is sometimes more useful than a large one.
 
 ## Features (v0.1)
 
-- Hold `⌥ Option` and press `Tab` to open a list of all open windows
+- Hold `⌘ Command` and press `Tab` to open a list of all open windows
 - `Tab` next, `⇧ Tab` previous, `←` / `→` also navigate
-- Release `⌥` (or press `Return`) to raise the selected window, `Esc` to cancel
+- Release `⌘` (or press `Return`) to raise the selected window, `Esc` to cancel
 - The window list comes from the Accessibility API: window title, app name, app icon, minimized state
 - Selecting a minimized window un-minimizes it
 - Works over full-screen apps: the keyboard hook is a `CGEventTap`, so the panel does not need focus
@@ -52,7 +52,7 @@ open AltTabPersonal.xcodeproj
 2. System Settings → **Privacy & Security → Accessibility** → enable *AltTabPersonal*
    (if it is not listed, add `build/AltTabPersonal.app` with `+`)
 3. Quit and reopen the app (macOS requires a restart after a permission change)
-4. Hold `⌥` and press `Tab`
+4. Hold `⌘` and press `Tab`
 
 Note: because the app is ad-hoc signed, rebuilding may make macOS ask for the permission again.
 Signing with a local developer certificate, to keep the TCC identity stable, is on the roadmap.
@@ -60,8 +60,12 @@ Signing with a local developer certificate, to keep the TCC identity stable, is 
 ## Troubleshooting
 
 - **The list is empty:** Accessibility permission is missing. Use the menu bar item → *Permissions…*.
-- **`⌥ + Tab` does nothing:** another app may already own that combination. Making the shortcut
-  configurable is on the roadmap.
+- **`⌘ + Tab` does nothing:** another app or another switcher may already own that combination; quit
+  it and restart this app. The modifier itself can be changed, see below.
+- **The system switcher disappeared:** that is intended. The event tap swallows `⌘ + Tab` so this
+  panel replaces it. Quit the app (menu bar ⇥ → Quit) to get the macOS switcher back.
+- **Prefer `⌥ Option + Tab`:** `defaults write online.plner.alttab-personal modifier -string option`
+  (then restart the app). Back to Command: `defaults delete online.plner.alttab-personal modifier`.
 - **Panel missing over a full-screen app:** the panel is declared `fullScreenAuxiliary`; a few games
   with their own full-screen mode may still hide it. That is a known limitation of the published v0.1.
 
@@ -74,7 +78,7 @@ Sources/
   Permissions.swift        Accessibility check, prompt, settings deep link
   WindowInfo.swift         window model
   WindowEnumerator.swift   open window list via the AX API
-  HotKeyMonitor.swift      global ⌥+Tab hook via CGEventTap
+  HotKeyMonitor.swift      global ⌘+Tab hook via CGEventTap
   SwitcherPanel.swift      list panel (NSVisualEffectView + NSStackView)
   SwitcherController.swift selection state, raising windows
   L.swift                  tiny localization helper (English first, Turkish second)

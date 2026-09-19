@@ -35,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.controller.handleFirstSummon()
         }
         hotKeys.onTab = { [weak self] shift in self?.controller.handleTab(shift: shift) }
-        hotKeys.onOptionReleased = { [weak self] in
+        hotKeys.onModifierReleased = { [weak self] in
             self?.hotKeys.setActive(false)
             self?.controller.commit()
         }

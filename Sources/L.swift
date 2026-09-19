@@ -18,8 +18,8 @@ enum L {
     static var minimized: String { pick("minimized", "küçültülmüş") }
 
     static var navigationHint: String {
-        pick("Hold ⌥ · Tab/←→ to move · release to switch · Esc to cancel",
-             "⌥ basılı tut · Tab/←→ gez · bırak = seç · Esc iptal")
+        pick("Hold ⌘ · Tab/←→ to move · release to switch · Esc to cancel",
+             "⌘ basılı tut · Tab/←→ gez · bırak = seç · Esc iptal")
     }
 
     static func windowCount(total: Int, shown: Int) -> String {
@@ -27,7 +27,7 @@ enum L {
     }
 
     static var menuHint: String {
-        pick("Hold ⌥ + Tab to switch windows", "⌥ + Tab ile pencereler arasında gezin")
+        pick("Hold ⌘ + Tab to switch windows", "⌘ + Tab ile pencereler arasında gezin")
     }
     static var menuPermissions: String { pick("Permissions…", "İzinler…") }
     static var menuLogs: String { pick("Open log folder", "Log klasörünü aç") }

@@ -49,7 +49,8 @@ curl -s -H "Authorization: token $TOKEN" https://api.github.com/repos/tarcanm/al
 - [x] Linux side verified on a real desktop: Alt+Tab switches windows, autostart and the modifier
       repair survive a login / Linux tarafı gerçek masaüstünde doğrulandı
 - [ ] `make app` builds cleanly on the MacBook / MacBook'ta `make app` hatasız derlendi
-- [ ] `⌥ + Tab` works and raises the selected window / `⌥ + Tab` çalışıyor, doğru pencereyi öne getiriyor
+- [ ] `⌘ + Tab` works, raises the selected window and suppresses the system switcher
+      / `⌘ + Tab` çalışıyor, doğru pencereyi öne getiriyor ve sistem değiştiricisini bastırıyor
 - [ ] The README steps work end to end (clone, build, permission, test)
       / README'deki adımlar uçtan uca çalışıyor (klon, derleme, izin, test)
 

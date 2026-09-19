@@ -1,24 +1,24 @@
 import AppKit
 import ApplicationServices
 
-/// Global ⌥ + Tab hook.
+/// Global ⌘ + Tab hook.
 ///
 /// Callbacks:
-/// - `onFirstSummon()`: the first ⌥+Tab press, panel is not open yet
+/// - `onFirstSummon()`: the first ⌘+Tab press, panel is not open yet
 /// - `onTab(shift:)`: Tab pressed (⇧ for backwards)
-/// - `onOptionReleased()`: ⌥ released → apply the selection
+/// - `onModifierReleased()`: ⌘ released → apply the selection
 /// - `onCommit()`: Return
 /// - `onCancel()`: Esc
 ///
 /// Technical note: a CGEventTap runs globally and can swallow the key, so the panel does not have
 /// to be the key window. It also works over full-screen apps. Requires the Accessibility permission.
 ///
-/// Global ⌥ + Tab kancası.
+/// Global ⌘ + Tab kancası.
 ///
 /// Geri çağrılar:
-/// - `onFirstSummon()`: ilk ⌥+Tab basışı, panel henüz açık değil
+/// - `onFirstSummon()`: ilk ⌘+Tab basışı, panel henüz açık değil
 /// - `onTab(shift:)`: Tab basıldı (⇧ ile geri)
-/// - `onOptionReleased()`: ⌥ bırakıldı → seçimi uygula
+/// - `onModifierReleased()`: ⌘ bırakıldı → seçimi uygula
 /// - `onCommit()`: Return
 /// - `onCancel()`: Esc
 ///
@@ -30,12 +30,33 @@ final class HotKeyMonitor {
     var onTab: ((Bool) -> Void)?
     var onCommit: (() -> Void)?
     var onCancel: (() -> Void)?
-    var onOptionReleased: (() -> Void)?
+    var onModifierReleased: (() -> Void)?
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var isActive = false
-    private var optionWasDown = false
+    private var modifierWasDown = false
+
+    /// The modifier that summons the panel: ⌘ Command by default, because that is what macOS itself
+    /// uses. The tap swallows the combination, so the system switcher does not appear while this app
+    /// runs. Restore ⌥ Option with:
+    ///   defaults write online.plner.alttab-personal modifier -string option
+    /// Paneli açan değiştirici: varsayılan ⌘ Command, çünkü macOS'un kendisi de bunu kullanıyor.
+    /// Kanca kombinasyonu yuttuğu için bu uygulama çalışırken sistem değiştiricisi görünmez.
+    /// ⌥ Option'a dönmek için:
+    ///   defaults write online.plner.alttab-personal modifier -string option
+    private var usesCommandModifier = true
+
+    /// Read the preference once, at start / Tercihi bir kez, başlangıçta oku
+    private func readModifierPreference() {
+        usesCommandModifier = (UserDefaults.standard.string(forKey: "modifier") ?? "command")
+            .lowercased() != "option"
+    }
+
+    /// Flag watched for summon and for release / Açma ve bırakma için izlenen bayrak
+    private var summonFlag: CGEventFlags {
+        usesCommandModifier ? .maskCommand : .maskAlternate
+    }
 
     private let tabKeyCode: Int64 = 48        // kVK_Tab
     private let escapeKeyCode: Int64 = 53     // kVK_Escape
@@ -47,6 +68,7 @@ final class HotKeyMonitor {
 
     func start() {
         guard eventTap == nil else { return }
+        readModifierPreference()
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.flagsChanged.rawValue)
         let refcon = Unmanaged.passUnretained(self).toOpaque()
 
@@ -75,11 +97,11 @@ final class HotKeyMonitor {
         runLoopSource = nil
     }
 
-    /// Is the monitor active (⌥ held down and the panel open)?
-    /// İzleyici aktif mi (⌥ basılı tutuluyor ve panel açık)?
+    /// Is the monitor active (the modifier is held down and the panel open)?
+    /// İzleyici aktif mi (değiştirici basılı tutuluyor ve panel açık)?
     func setActive(_ active: Bool) {
         isActive = active
-        if !active { optionWasDown = false }
+        if !active { modifierWasDown = false }
     }
 
     // MARK: - Event handling / Olay işleme
@@ -93,31 +115,31 @@ final class HotKeyMonitor {
         }
 
         let flags = event.flags
-        let optionDown = flags.contains(.maskAlternate)
+        let modifierDown = flags.contains(summonFlag)
         let shiftDown = flags.contains(.maskShift)
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
 
         if type == .flagsChanged {
-            // ⌥ released → apply the selection.
-            // ⌥ bırakıldı → seçimi uygula.
-            if isActive, optionWasDown, !optionDown {
-                optionWasDown = false
-                DispatchQueue.main.async { [weak self] in self?.onOptionReleased?() }
+            // Modifier released → apply the selection.
+            // Değiştirici bırakıldı → seçimi uygula.
+            if isActive, modifierWasDown, !modifierDown {
+                modifierWasDown = false
+                DispatchQueue.main.async { [weak self] in self?.onModifierReleased?() }
                 return nil
             }
-            optionWasDown = optionDown
+            modifierWasDown = modifierDown
             return Unmanaged.passUnretained(event)
         }
 
         guard type == .keyDown else { return Unmanaged.passUnretained(event) }
 
-        // Panel closed: only watch for the start of ⌥+Tab.
-        // Panel kapalıyken: sadece ⌥+Tab başlangıcını yakala.
+        // Panel closed: only watch for the start of ⌘+Tab.
+        // Panel kapalıyken: sadece ⌘+Tab başlangıcını yakala.
         if !isActive {
-            if optionDown, keyCode == tabKeyCode {
-                optionWasDown = true
+            if modifierDown, keyCode == tabKeyCode {
+                modifierWasDown = true
                 DispatchQueue.main.async { [weak self] in self?.onFirstSummon?() }
-                return nil   // swallow the key so no other app sees it / tuşu yut
+                return nil   // swallow it, so the system switcher never sees it / tuşu yut
             }
             return Unmanaged.passUnretained(event)
         }

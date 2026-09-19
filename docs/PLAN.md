@@ -18,14 +18,14 @@
 
 ## v0.1 scope / kapsam
 
-- Hold `⌥` + press `Tab` to open the panel; `Tab` / `⇧ Tab` / `←` / `→` navigate; release `⌥` to raise;
+- Hold `⌘` + press `Tab` to open the panel; `Tab` / `⇧ Tab` / `←` / `→` navigate; release `⌘` to raise;
   `Esc` cancels
 - Window list via the AX API (app name, window title, icon, minimized state)
 - Un-minimize a minimized window when selected
 - Menu bar item + permission flow
 
 Turkish:
-- `⌥ + Tab` ile panel açma, `Tab`/`⇧Tab`/`←`/`→` gezinme, `⌥` bırakınca öne getirme, `Esc` iptal
+- `⌘ + Tab` ile panel açma, `Tab`/`⇧Tab`/`←`/`→` gezinme, `⌘` bırakınca öne getirme, `Esc` iptal
 - AX API ile açık pencere listesi (uygulama adı, pencere başlığı, simge, küçültülmüş durumu)
 - Küçültülmüş pencereyi geri açma
 - Menü çubuğu simgesi + izin akışı
@@ -49,7 +49,9 @@ Turkish:
 
 - Type-to-search (keys are already captured; a `query` buffer plus filtering is enough)
   / Yazmaya başlayınca arama (tuş yakalama zaten var, bir `query` tamponu yeterli)
-- Configurable shortcut (currently fixed at `⌥+Tab`; `UserDefaults` plus a small recorder)
+- A shortcut recorder. Today only the modifier is configurable (`defaults write
+  online.plner.alttab-personal modifier -string option` switches to `⌥`); a full key recorder with a
+  preferences window is still to come.
 - Multi-display: open on the display with the cursor / Çoklu ekran: imlecin olduğu ekranda aç
 - Make the small-window filter threshold configurable (currently fixed 200x120)
   / Küçük pencere filtresi eşiği ayarlanabilir olsun
