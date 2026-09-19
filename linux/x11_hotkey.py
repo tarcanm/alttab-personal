@@ -163,15 +163,30 @@ class X11HotKey:
     def _grab_keyboard(self):
         if self.keyboard_grabbed or self.display is None:
             return
-        self.display.grab_keyboard(False, X.GrabModeAsync, X.GrabModeAsync, X.CurrentTime)
-        self.display.sync()
-        self.keyboard_grabbed = True
+        try:
+            # python-xlib 0.33 exposes GrabKeyboard on the window, not on the display. Calling
+            # display.grab_keyboard() raised AttributeError inside the first real Alt+Tab press and
+            # the panel never appeared, while stub-based unit tests all passed.
+            # python-xlib 0.33 GrabKeyboard'i display uzerinde degil pencere uzerinde sunar.
+            # display.grab_keyboard() ilk gercek Alt+Tab basisinda AttributeError verdi ve panel hic
+            # acilmadi; sahte nesnelerle yapilan birim testleri ise gecti.
+            self.root.grab_keyboard(False, X.GrabModeAsync, X.GrabModeAsync, X.CurrentTime)
+            self.display.sync()
+            self.keyboard_grabbed = True
+        except Exception as exc:
+            # The active grab is an optimisation: the Alt watchdog still ends the panel.
+            # Aktif grab bir iyilestirmedir: Alt bekcisi paneli yine de kapatir.
+            self.log("keyboard grab unavailable:", exc)
+            self.keyboard_grabbed = False
 
     def _ungrab_keyboard(self):
         if not self.keyboard_grabbed or self.display is None:
             return
-        self.display.ungrab_keyboard(X.CurrentTime)
-        self.display.sync()
+        try:
+            self.display.ungrab_keyboard(X.CurrentTime)
+            self.display.sync()
+        except Exception as exc:
+            self.log("keyboard ungrab failed:", exc)
         self.keyboard_grabbed = False
 
     def alt_is_down(self):
