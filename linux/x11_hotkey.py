@@ -12,6 +12,7 @@ Why it works this way / Neden böyle:
   Alt bırakılması iki yolla algılanır: KeyRelease olayı ve kesin bilgi için QueryKeymap yoklaması.
 """
 
+import sys
 import time
 
 import gi
@@ -22,7 +23,7 @@ from gi.repository import GLib  # noqa: E402
 from Xlib import X, XK, display  # noqa: E402
 from Xlib.error import BadAccess, XError  # noqa: E402
 
-from logic import is_auto_repeat  # noqa: E402
+from logic import MODIFIER_NAMES, is_auto_repeat, modifier_name_for_keycode  # noqa: E402
 
 # Keyboard keys we care about / İlgilendiğimiz tuşlar
 KEYSYMS = {
@@ -99,8 +100,44 @@ class X11HotKey:
             if isinstance(error, BadAccess):
                 raise HotKeyUnavailable("BadAccess on Mod1+Tab grab")
 
+        mask = self.alt_modifier_mask()
+        if mask is None:
+            # Without this check the app looks healthy while no key can ever trigger it: the grab
+            # succeeds because nobody else owns Mod1+Tab, but an Alt key outside Mod1 never matches.
+            # Bu kontrol olmadan uygulama sağlıklı görünür ama hiçbir tuş onu tetikleyemez: başkası
+            # Mod1+Tab'i tutmadığı için grab başarılıdır, ancak Mod1 dışındaki Alt tuşu asla eşleşmez.
+            message = self.l.alt_not_mod1(self.describe_modifier_map())
+            if message:
+                print(message, file=sys.stderr, flush=True)
         self._source_id = GLib.io_add_watch(self.display.fileno(), GLib.IO_IN, self._on_x_events)
         return True
+
+    def alt_modifier_mask(self):
+        """Mask bit name for the Alt key, or None when Alt is outside Mod1.
+
+        Alt tuşunun maskesi; Alt Mod1 dışındaysa None."""
+        if self.display is None or self.alt_keycode is None:
+            return None
+        try:
+            mapping = self.display.get_modifier_mapping()
+        except Exception:
+            return None
+        return modifier_name_for_keycode(mapping, self.alt_keycode)
+
+    def describe_modifier_map(self):
+        """Human readable modifier table, for the warning message.
+
+        Uyarı mesajı için okunabilir modifier tablosu."""
+        try:
+            mapping = self.display.get_modifier_mapping()
+        except Exception:
+            return "unavailable"
+        names = [name.lower() for name in MODIFIER_NAMES]
+        parts = []
+        for index, keycodes in enumerate(mapping):
+            if index < len(names):
+                parts.append("%s=%s" % (names[index], [int(k) for k in keycodes if k]))
+        return "; ".join(parts)
 
     def stop(self):
         """Remove the grab, release the keyboard and close the display.

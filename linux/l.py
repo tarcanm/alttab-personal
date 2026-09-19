@@ -65,6 +65,18 @@ class L:
             "satırı kaldır veya değiştir, pencere yöneticisini yenile, sonra bu uygulamayı tekrar başlat.",
         )
 
+    def alt_not_mod1(self, detail):
+        """Warn when the Alt key does not produce Mod1: Alt+Tab can then never fire.
+
+        Alt tuşu Mod1 üretmiyorsa uyar: o durumda Alt+Tab asla tetiklenemez."""
+        en = ("Warning: the Alt key is not bound to Mod1 on this display (%s).\n"
+              "Alt+Tab cannot fire until the modifier map is repaired:\n"
+              "  xmodmap -e \"clear mod1\" -e \"add mod1 = Alt_L\"") 
+        tr = ("Uyarı: bu ekranda Alt tuşu Mod1'e bağlı değil (%s).\n"
+              "Modifier haritası düzeltilene kadar Alt+Tab tetiklenemez:\n"
+              "  xmodmap -e \"clear mod1\" -e \"add mod1 = Alt_L\"")
+        return en if self.english else tr
+
     @property
     def display_missing(self):
         return self.pick(

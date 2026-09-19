@@ -82,6 +82,32 @@ chmod +x "$DEST/run.sh" "$DEST/setup-fluxbox.sh"
 echo "   smoke test / duman testi:"
 ( cd "$DEST" && python3 alttab_personal.py --print-windows 2>&1 | head -12 )
 
+echo "== 3b/5 Alt modifier check / Alt modifier kontrolu"
+# Alt must be Mod1. With an empty mod1 nothing bound to Mod1 ever fires: neither our Alt+Tab grab
+# nor Fluxbox's own NextWindow. Some sessions come up with Alt_L sitting inside "control" instead,
+# which looks healthy but makes Alt+Tab impossible.
+# Alt Mod1 olmalidir. mod1 bosken Mod1'e bagli hicbir sey tetiklenmez: ne bizim Alt+Tab grab'imiz ne
+# Fluxbox'in kendi NextWindow'u. Bazi oturumlar Alt_L'yi "control" icine koyar; saglikli gorunur ama
+# Alt+Tab imkansiz olur.
+if command -v xmodmap >/dev/null 2>&1; then
+    if xmodmap -pm 2>/dev/null | grep -qE '^mod1[[:space:]]+.*Alt'; then
+        echo "   mod1 already contains Alt / mod1 zaten Alt iceriyor"
+    else
+        xmodmap -e "clear control" -e "add control = Control_L Control_R" \
+                 -e "clear mod1" -e "add mod1 = Alt_L" 2>/dev/null || true
+        if xmodmap -pm 2>/dev/null | grep -qE '^mod1[[:space:]]+.*Alt'; then
+            echo "   mod1 repaired for this session / bu oturum icin duzeltildi"
+        else
+            echo "   WARNING: could not repair mod1 / mod1 duzeltilemedi"
+        fi
+        # Remember the repair for the next login / Onarimi sonraki giris icin hatirla
+        if [ -f "$HOME/.fluxbox/startup" ] && ! grep -q 'alttab-mod1-repair' "$HOME/.fluxbox/startup"; then
+            printf '\n# AltTab Personal: keep Alt on Mod1 / Alt Mod1 de kalsin\n# alttab-mod1-repair\nif ! xmodmap -pm 2>/dev/null | grep -qE "^mod1[[:space:]]+.*Alt"; then\n    xmodmap -e "clear control" -e "add control = Control_L Control_R" -e "clear mod1" -e "add mod1 = Alt_L"\nfi\n' >> "$HOME/.fluxbox/startup"
+            echo "   repair added to ~/.fluxbox/startup / onarim startup dosyasina eklendi"
+        fi
+    fi
+fi
+
 echo "== 4/5 Autostart / Otomatik baslatma"
 if [ -f "$HOME/.fluxbox/startup" ]; then
     if ! grep -q 'alttab-linux' "$HOME/.fluxbox/startup"; then

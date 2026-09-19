@@ -16,6 +16,7 @@ from logic import (  # noqa: E402
     humanize_app_name,
     initial_index,
     is_auto_repeat,
+    modifier_name_for_keycode,
     visible_range,
 )
 
@@ -101,6 +102,18 @@ class TestAutoRepeat(unittest.TestCase):
 
     def test_first_event_is_not_repeat(self):
         self.assertFalse(is_auto_repeat(None, None, 23, 100))
+
+    def test_modifier_name_for_keycode(self):
+        """The real world failure seen on the MX Linux desktop: Alt_L inside control, mod1 empty.
+
+        MX Linux masaustunde gorulen gercek hata: Alt_L control icinde, mod1 bos."""
+        scrambled = [[50, 62], [66], [37, 64, 105, 204], [], [77], [], [133, 134], [92]]
+        self.assertEqual(modifier_name_for_keycode(scrambled, 64), "Control")
+        healthy = [[50, 62], [66], [37, 105], [64], [77], [], [133, 134], [92]]
+        self.assertEqual(modifier_name_for_keycode(healthy, 64), "Mod1")
+        self.assertIsNone(modifier_name_for_keycode(scrambled, 99))
+        self.assertIsNone(modifier_name_for_keycode([], 64))
+        self.assertIsNone(modifier_name_for_keycode(scrambled, None))
 
 
 class TestLocalization(unittest.TestCase):

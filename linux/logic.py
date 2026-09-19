@@ -136,6 +136,36 @@ def app_name_is_useless(name, title):
     return len(name) > 40  # window titles are long, application names are not / başlıklar uzundur
 
 
+MODIFIER_NAMES = ("Shift", "Lock", "Control", "Mod1", "Mod2", "Mod3", "Mod4", "Mod5")
+
+
+def modifier_name_for_keycode(mapping, keycode):
+    """Name of the modifier set that contains keycode, or None when it is in none.
+
+    keycode'u içeren modifier kümesinin adı; hiçbirinde değilse None.
+
+    On some sessions Alt_L ends up inside "Control" and mod1 is left empty; then nothing bound to
+    Mod1 (our Alt+Tab grab, Fluxbox's own NextWindow) can ever fire.
+    Bazı oturumlarda Alt_L "Control" içinde kalır ve mod1 boş kalır; o zaman Mod1'e bağlı hiçbir şey
+    (bizim Alt+Tab grab'imiz, Fluxbox'ın NextWindow'u) tetiklenemez.
+
+    >>> modifier_name_for_keycode([[50, 62], [66], [37, 64], [], [77]], 64)
+    'Control'
+    >>> modifier_name_for_keycode([[50, 62], [66], [37], [64]], 64)
+    'Mod1'
+    >>> modifier_name_for_keycode([[50, 62], [66], [37]], 64)
+    """
+    if keycode is None:
+        return None
+    for index, keycodes in enumerate(mapping):
+        if index >= len(MODIFIER_NAMES):
+            break
+        for candidate in keycodes:
+            if candidate and int(candidate) == keycode:
+                return MODIFIER_NAMES[index]
+    return None
+
+
 def is_auto_repeat(prev_keycode, prev_time, keycode, time):
     """Is this event an auto-repeat artifact of the previous one?
 
