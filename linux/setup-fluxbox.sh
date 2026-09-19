@@ -110,8 +110,15 @@ fi
 
 echo "== 4/5 Autostart / Otomatik baslatma"
 if [ -f "$HOME/.fluxbox/startup" ]; then
-    if ! grep -q 'alttab-linux' "$HOME/.fluxbox/startup"; then
-        printf '\n# AltTab Personal\n[ -x "$HOME/.alttab-linux/run.sh" ] && "$HOME/.alttab-linux/run.sh" &\n' >> "$HOME/.fluxbox/startup"
+    if grep -q '\[ -x "$HOME/.alttab-linux/run.sh" \]' "$HOME/.fluxbox/startup"; then
+        # Replace the old one-liner with a logging version, so a failed start at login is
+        # diagnosable instead of silent / Eski tek satiri gunluk yazan surumle degistir; boylece
+        # giriste basarisiz bir baslatma sessiz kalmaz, incelenebilir.
+        sed -i '\|\[ -x "$HOME/.alttab-linux/run.sh" \]|d' "$HOME/.fluxbox/startup"
+        printf 'if [ -x "$HOME/.alttab-linux/run.sh" ]; then\n    "$HOME/.alttab-linux/run.sh" --debug >> "$HOME/.alttab-linux/alttab.log" 2>&1 &\nfi\n' >> "$HOME/.fluxbox/startup"
+        echo "   autostart line upgraded to log to ~/.alttab-linux/alttab.log"
+    elif ! grep -q 'alttab-linux' "$HOME/.fluxbox/startup"; then
+        printf '\n# AltTab Personal\nif [ -x "$HOME/.alttab-linux/run.sh" ]; then\n    "$HOME/.alttab-linux/run.sh" --debug >> "$HOME/.alttab-linux/alttab.log" 2>&1 &\nfi\n' >> "$HOME/.fluxbox/startup"
     fi
     echo "   ~/.fluxbox/startup updated / guncellendi"
 else
