@@ -18,14 +18,43 @@ import argparse
 import os
 import sys
 
-import gi
+from l import L_  # noqa: E402
+from logic import initial_index, cycle_index  # noqa: E402
+
+# DISPLAY has to be resolved *before* GTK is imported. GDK caches the "no display" state while being
+# imported, and afterwards Gtk.init_check() reports success while creating the very first window
+# fails with "Gtk couldn't be initialized". Setting the variable later does not help.
+# DISPLAY, GTK import edilmeden ÖNCE çözülmelidir. GDK import edilirken "ekran yok" durumunu önbelleğe
+# alır; sonrasında Gtk.init_check() başarı bildirir ama ilk pencere oluşturma "Gtk couldn't be
+# initialized" ile başarısız olur. Değişkeni sonra ayarlamak işe yaramaz.
+DISPLAY_GUESSED = None
+
+
+def ensure_display():
+    """Return the display to use, guessing the usual local one when DISPLAY is unset.
+
+    Kullanılacak ekranı döndür; DISPLAY tanımsızsa olağan yerel ekranı tahmin et.
+    """
+    global DISPLAY_GUESSED
+    current = os.environ.get("DISPLAY")
+    if current:
+        return current
+    for candidate in (":0", ":1"):
+        if os.path.exists(f"/tmp/.X11-unix/X{candidate[1:]}"):
+            os.environ["DISPLAY"] = candidate
+            DISPLAY_GUESSED = candidate
+            return candidate
+    return None
+
+
+ensure_display()
+
+import gi  # noqa: E402
 
 gi.require_version("Gtk", "3.0")
 
 from gi.repository import GLib, Gtk  # noqa: E402
 
-from l import L_  # noqa: E402
-from logic import initial_index, cycle_index  # noqa: E402
 from panel import SwitcherPanel  # noqa: E402
 from window_list import WindowList  # noqa: E402
 from x11_hotkey import HotKeyUnavailable, X11HotKey  # noqa: E402
@@ -115,22 +144,23 @@ class Switcher:
         return 0
 
 
-def ensure_display():
-    """DISPLAY is often missing over SSH, from a root shell or from a launcher. Try the usual local
-    display before giving up, so the app works from anywhere as the desktop user.
+def display_reachable(display_name=None):
+    """Open and close a real X connection, so we know the display works before building any GTK or
+    libwnck object. Gtk.init_check() is not enough here: importing libwnck can leave GTK in a state
+    where it reports success and the first window creation fails instead.
 
-    DISPLAY SSH'ta, root kabuğunda veya bir başlatıcıdan gelirken çoğu zaman tanımsızdır. Vazgeçmeden
-    önce olağan yerel ekranı deneyin; böylece uygulama masaüstü kullanıcısı olarak her yerden çalışır.
+    Gerçek bir X bağlantısı açıp kapatır; böylece herhangi bir GTK veya libwnck nesnesi kurmadan önce
+    ekranın çalıştığını biliriz. Burada Gtk.init_check() yeterli değil: libwnck importu GTK'yı öyle
+    bir durumda bırakabiliyor ki başarı bildiriyor ve ilk pencere oluşturmada çöküyor.
     """
-    current = os.environ.get("DISPLAY")
-    if current:
-        return current
-    for candidate in (":0", ":1"):
-        if os.path.exists(f"/tmp/.X11-unix/X{candidate[1:]}"):
-            os.environ["DISPLAY"] = candidate
-            print(L_.display_guessed(candidate), file=sys.stderr)
-            return candidate
-    return None
+    try:
+        from Xlib import display as xdisplay
+
+        connection = xdisplay.Display(display_name) if display_name else xdisplay.Display()
+        connection.close()
+        return True
+    except Exception:
+        return False
 
 
 def demo_panel(seconds=5):
@@ -216,11 +246,29 @@ def main(argv=None):
     if not ensure_display():
         print(L_.display_missing, file=sys.stderr)
         return 3
+    if DISPLAY_GUESSED:
+        print(L_.display_guessed(DISPLAY_GUESSED), file=sys.stderr)
+
+    # Check the connection before building anything: creating a Gtk window or asking libwnck for the
+    # screen without a working display crashes the process instead of failing with a message.
+    # Bir şey kurmadan önce bağlantıyı doğrula: çalışan bir ekran olmadan Gtk penceresi veya libwnck
+    # ekranı oluşturmak, mesajla hata vermek yerine süreci çökertir.
+    if not display_reachable():
+        print(L_.display_missing, file=sys.stderr)
+        return 3
+    if not Gtk.init_check()[0]:
+        print(L_.display_missing, file=sys.stderr)
+        return 3
     if args.print_windows:
         return print_windows()
     if args.demo_panel:
         return demo_panel(args.demo_panel)
-    return Switcher(debug=args.debug).run()
+    try:
+        switcher = Switcher(debug=args.debug)
+    except RuntimeError as exc:  # GTK refused to initialize / GTK başlatılamadı
+        print(L_.startup_failed(exc), file=sys.stderr)
+        return 3
+    return switcher.run()
 
 
 if __name__ == "__main__":

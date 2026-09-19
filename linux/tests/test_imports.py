@@ -25,6 +25,16 @@ class TestImports(unittest.TestCase):
                 self.assertIsNotNone(importlib.import_module(name))
 
     @unittest.skipUnless(HAVE_GI, "PyGObject is not installed here")
+    def test_display_reachability_check(self):
+        """A bogus display must be reported as unreachable, not crash the app.
+
+        Sahte bir ekran erişilemez olarak bildirilmeli, uygulamayı çökertmemeli."""
+        import alttab_personal
+
+        self.assertFalse(alttab_personal.display_reachable(":99"))
+        self.assertIn("display_missing", dir(alttab_personal.L_))
+
+    @unittest.skipUnless(HAVE_GI, "PyGObject is not installed here")
     def test_gi_modules(self):
         for name in GI_MODULES:
             with self.subTest(module=name):
