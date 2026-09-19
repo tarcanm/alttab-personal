@@ -100,11 +100,14 @@ if command -v xmodmap >/dev/null 2>&1; then
         else
             echo "   WARNING: could not repair mod1 / mod1 duzeltilemedi"
         fi
-        # Remember the repair for the next login / Onarimi sonraki giris icin hatirla
-        if [ -f "$HOME/.fluxbox/startup" ] && ! grep -q 'alttab-mod1-repair' "$HOME/.fluxbox/startup"; then
-            printf '\n# AltTab Personal: keep Alt on Mod1 / Alt Mod1 de kalsin\n# alttab-mod1-repair\nif ! xmodmap -pm 2>/dev/null | grep -qE "^mod1[[:space:]]+.*Alt"; then\n    xmodmap -e "clear control" -e "add control = Control_L Control_R" -e "clear mod1" -e "add mod1 = Alt_L"\nfi\n' >> "$HOME/.fluxbox/startup"
-            echo "   repair added to ~/.fluxbox/startup / onarim startup dosyasina eklendi"
-        fi
+    fi
+    # Remember the repair for every later login, unconditionally: the block checks before acting, so
+    # it is a no-op while the map is healthy and a fix when some session start breaks it again.
+    # Onarimi her sonraki giris icin kosulsuz hatirla: blok once kontrol eder, harita saglikliyken
+    # hicbir sey yapmaz, bir oturum baslangici tekrar bozarsa duzeltir.
+    if [ -f "$HOME/.fluxbox/startup" ] && ! grep -q 'alttab-mod1-repair' "$HOME/.fluxbox/startup"; then
+        printf '\n# AltTab Personal: keep Alt on Mod1 / Alt Mod1 de kalsin\n# alttab-mod1-repair\nif ! xmodmap -pm 2>/dev/null | grep -qE "^mod1[[:space:]]+.*Alt"; then\n    xmodmap -e "clear control" -e "add control = Control_L Control_R" -e "clear mod1" -e "add mod1 = Alt_L"\nfi\n' >> "$HOME/.fluxbox/startup"
+        echo "   mod1 repair block written to ~/.fluxbox/startup / onarim blogu startup'a yazildi"
     fi
 fi
 
