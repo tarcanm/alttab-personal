@@ -3,4 +3,24 @@
 # AltTab Personal (Linux) başlatıcısı. Önce İngilizce, sonra Türkçe.
 set -u
 cd "$(dirname "$0")" || exit 1
+
+# One instance only: the switcher grabs Mod1+Tab, so a second copy would fight the first one and make
+# Alt+Tab look broken. One-shot helpers are exempt, they are meant to run next to the switcher.
+# Tek örnek: değiştirici Mod1+Tab'ı tutar; ikinci bir kopya birinciyle çakışır ve Alt+Tab bozuk
+# görünür. Tek seferlik yardımcılar muaf, onlar değiştiricinin yanında çalışmak için var.
+DAEMON=1
+for arg in "$@"; do
+    case "$arg" in
+        --print-windows|--demo-panel|--demo-panel=*|--version|-h|--help) DAEMON=0 ;;
+    esac
+done
+
+if [ "$DAEMON" = "1" ] && command -v flock >/dev/null 2>&1; then
+    exec 9>"$PWD/.alttab.lock"
+    if ! flock -n 9; then
+        echo "AltTab Personal is already running, exiting / zaten calisiyor, cikiliyor" >&2
+        exit 0
+    fi
+fi
+
 exec python3 alttab_personal.py "$@"

@@ -57,16 +57,24 @@ echo "== 2/5 Free Alt+Tab from Fluxbox / Alt+Tab'i Fluxbox'tan al"
 KEYS="$HOME/.fluxbox/keys"
 mkdir -p "$HOME/.fluxbox"
 if [ ! -f "$KEYS" ]; then
-    # Do NOT invent a minimal keys file: that would drop every compiled-in default binding
-    # (Alt+F1 root menu, workspace keys, ...). We only edit it when it exists.
-    # Minimal bir keys dosyasi UYDURMUYORUZ: o zaman Fluxbox'un derlenmis varsayilan baglamalari
-    # (Alt+F1 menu, calisma alani tuslari...) kaybolur. Sadece var olan dosyayi duzenliyoruz.
-    echo "   ~/.fluxbox/keys not found / yok. Fluxbox compiled defaults are in use;"
-    echo "   skipping the key edit. If the app cannot grab Alt+Tab, start Fluxbox once so it"
-    echo "   writes ~/.fluxbox/keys, then run this script again."
-    echo "   (Turkce) keys dosyasi yok, tus duzenlemesi atlandi; uygulama Alt+Tab'i alamazsa"
-    echo "   Fluxbox'u bir kez baslatip dosyanin olusmasini sagla, sonra betigi tekrar calistir."
-else
+    # A missing keys file does not mean "no bindings": Fluxbox falls back to its compiled-in
+    # defaults, which bind Mod1 Tab to NextWindow as well, so the app could never grab the key. Seed
+    # the file from the packaged default keys (the complete set, not an invented minimal file) and
+    # then edit it exactly like an existing one.
+    # Dosya yoksa "baglama yok" demek degildir: Fluxbox derlenmis varsayilanlarina duser, orada da
+    # Mod1 Tab NextWindow'a baglidir ve uygulama tusu hic alamaz. Paketle gelen varsayilan tus
+    # dosyasini (eksiksiz kume, uydurma minimal bir dosya degil) kopyalayip normal duzenliyoruz.
+    for ktpl in /etc/X11/fluxbox/keys /usr/share/fluxbox/keys /usr/share/doc/fluxbox/examples/keys; do
+        if [ -f "$ktpl" ]; then
+            cp "$ktpl" "$KEYS"
+            echo "   $KEYS was missing, seeded from $ktpl"
+            echo "   (TR) $KEYS yoktu, $ktpl dosyasindan olusturuldu"
+            break
+        fi
+    done
+fi
+
+if [ -f "$KEYS" ]; then
     cp -a "$KEYS" "$KEYS.bak-$(date +%Y%m%d-%H%M%S)"
     # Remove (comment out) any Mod1+Tab binding so Fluxbox no longer grabs the combination.
     # Commenting rather than replacing, so the original line stays readable in the file.
@@ -75,9 +83,37 @@ else
     echo "   backup / yedek: $(ls -t "$KEYS".bak-* 2>/dev/null | head -1)"
     LEFT=$(grep -cE '^[[:space:]]*Mod1[^:]*Tab[[:space:]]*:' "$KEYS" 2>/dev/null || true)
     echo "   remaining Mod1+Tab bindings / kalan baglama: ${LEFT:-0}"
+else
+    echo "   keys file missing and no packaged default to seed from / tus dosyasi yok ve kopyalanacak varsayilan da bulunamadi"
+    echo "   free Mod1+Tab by hand, then run this script again / Mod1+Tab'i elle serbest birak, sonra betigi tekrar calistir"
 fi
 fluxbox-remote reconfig >/dev/null 2>&1 || killall -HUP fluxbox 2>/dev/null || true
 sleep 1
+
+echo "== 2b/5 Autostart file / Otomatik baslatma dosyasi"
+# Fluxbox runs ~/.fluxbox/startup at login and ignores ~/.config/autostart completely, so a machine
+# without that file never brings the app back after a reboot. Seed it before writing anything into it.
+# Once seeded, the mod1 repair block and the AltTab autostart block below both land in that file.
+# Fluxbox girişte ~/.fluxbox/startup dosyasını çalıştırır ve ~/.config/autostart'ı hiç okumaz; bu
+# dosya yoksa uygulama yeniden başlatmadan sonra asla geri gelmez. İçine bir şey yazmadan önce
+# oluşturuyoruz; sonra mod1 onarımı ve AltTab otomatik başlatma blokları bu dosyaya girer.
+STARTUP="$HOME/.fluxbox/startup"
+if [ ! -f "$STARTUP" ]; then
+    for tpl in /usr/share/doc/fluxbox/examples/startup /etc/X11/fluxbox/startup /usr/share/fluxbox/startup; do
+        if [ -f "$tpl" ]; then
+            cp "$tpl" "$STARTUP"
+            echo "   $STARTUP was missing, seeded from $tpl"
+            echo "   (TR) $STARTUP yoktu, $tpl dosyasindan olusturuldu"
+            break
+        fi
+    done
+    if [ ! -f "$STARTUP" ]; then
+        mkdir -p "$HOME/.fluxbox"
+        printf '#!/bin/sh\n# Created by AltTab Personal. Fluxbox runs this file at login;\n# put your own commands above the AltTab block at the end.\n' > "$STARTUP"
+        chmod +x "$STARTUP"
+        echo "   created a minimal $STARTUP / minimal dosya olusturuldu"
+    fi
+fi
 
 echo "== 3/5 Install to ~/.alttab-linux / ~/.alttab-linux icine kur"
 rm -rf "$DEST"
@@ -112,30 +148,34 @@ if command -v xmodmap >/dev/null 2>&1; then
     # it is a no-op while the map is healthy and a fix when some session start breaks it again.
     # Onarimi her sonraki giris icin kosulsuz hatirla: blok once kontrol eder, harita saglikliyken
     # hicbir sey yapmaz, bir oturum baslangici tekrar bozarsa duzeltir.
-    if [ -f "$HOME/.fluxbox/startup" ] && ! grep -q 'alttab-mod1-repair' "$HOME/.fluxbox/startup"; then
+    if [ -f "$STARTUP" ] && ! grep -q 'alttab-mod1-repair' "$STARTUP"; then
         printf '\n# AltTab Personal: keep Alt on Mod1 / Alt Mod1 de kalsin\n# alttab-mod1-repair\nif ! xmodmap -pm 2>/dev/null | grep -qE "^mod1[[:space:]]+.*Alt"; then\n    xmodmap -e "clear control" -e "add control = Control_L Control_R" -e "clear mod1" -e "add mod1 = Alt_L"\nfi\n' >> "$HOME/.fluxbox/startup"
         echo "   mod1 repair block written to ~/.fluxbox/startup / onarim blogu startup'a yazildi"
     fi
 fi
 
 echo "== 4/5 Autostart / Otomatik baslatma"
-if [ -f "$HOME/.fluxbox/startup" ]; then
-    if grep -q '\[ -x "$HOME/.alttab-linux/run.sh" \]' "$HOME/.fluxbox/startup"; then
+if [ -f "$STARTUP" ]; then
+    if grep -q '\[ -x "$HOME/.alttab-linux/run.sh" \]' "$STARTUP"; then
         # Replace the old one-liner with a logging version, so a failed start at login is
         # diagnosable instead of silent / Eski tek satiri gunluk yazan surumle degistir; boylece
         # giriste basarisiz bir baslatma sessiz kalmaz, incelenebilir.
-        sed -i '\|\[ -x "$HOME/.alttab-linux/run.sh" \]|d' "$HOME/.fluxbox/startup"
+        sed -i '\|\[ -x "$HOME/.alttab-linux/run.sh" \]|d' "$STARTUP"
         printf 'if [ -x "$HOME/.alttab-linux/run.sh" ]; then\n    "$HOME/.alttab-linux/run.sh" --debug >> "$HOME/.alttab-linux/alttab.log" 2>&1 &\nfi\n' >> "$HOME/.fluxbox/startup"
         echo "   autostart line upgraded to log to ~/.alttab-linux/alttab.log"
-    elif ! grep -q 'alttab-linux' "$HOME/.fluxbox/startup"; then
+    elif ! grep -q 'alttab-linux' "$STARTUP"; then
         printf '\n# AltTab Personal\nif [ -x "$HOME/.alttab-linux/run.sh" ]; then\n    "$HOME/.alttab-linux/run.sh" --debug >> "$HOME/.alttab-linux/alttab.log" 2>&1 &\nfi\n' >> "$HOME/.fluxbox/startup"
     fi
     echo "   ~/.fluxbox/startup updated / guncellendi"
-else
-    mkdir -p "$HOME/.config/autostart"
-    sed "s|^Exec=.*|Exec=$DEST/run.sh|" "$DEST/alttab-personal.desktop" > "$HOME/.config/autostart/alttab-personal.desktop"
-    echo "   ~/.config/autostart/alttab-personal.desktop written / yazildi"
 fi
+# Belt and braces: write the XDG entry as well. Fluxbox ignores it, but a session that brings the
+# desktop up through a session manager picks the app up from there. run.sh holds a lock, so a double
+# start is harmless.
+# Ek güvence: XDG kaydını da yazıyoruz. Fluxbox bunu okumaz, ama masaüstünü bir oturum yöneticisi
+# ayağa kaldırıyorsa uygulama oradan da başlar. run.sh kilit tuttuğu için çifte başlatma zararsızdır.
+mkdir -p "$HOME/.config/autostart"
+sed "s|^Exec=.*|Exec=$DEST/run.sh --debug|" "$DEST/alttab-personal.desktop" > "$HOME/.config/autostart/alttab-personal.desktop"
+echo "   ~/.config/autostart/alttab-personal.desktop written as well / XDG kaydi da yazildi"
 
 echo "== 5/5 Start / Baslat"
 if [ "$START_APP" = "1" ]; then
