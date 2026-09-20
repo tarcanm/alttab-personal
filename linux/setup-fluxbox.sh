@@ -181,6 +181,9 @@ if ! grep -qE '^[[:space:]]*exec[[:space:]]+[^[:space:]]*fluxbox' "$STARTUP"; th
     printf '\nexec fluxbox\n' >> "$STARTUP"
     echo "   added the missing 'exec fluxbox' line / eksik exec fluxbox satiri eklendi"
 fi
+# startfluxbox runs a readable file with sh, but an executable one is unambiguous and costs nothing.
+# startfluxbox okunabilir dosyayi sh ile calistirir; calistirilabilir olmasi belirsizligi kaldirir.
+chmod +x "$STARTUP" 2>/dev/null || true
 
 cp -a "$STARTUP" "$STARTUP.bak-$(date +%Y%m%d-%H%M%S)"
 strip_alttab_block "$STARTUP"

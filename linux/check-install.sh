@@ -62,7 +62,7 @@ echo "== 4) Autostart file / otomatik baslatma dosyasi"
 # `exec fluxbox` ile biter. O satirdan sonra duran blok hic calismaz; "kurulumdan sonra calisiyor,
 # sonraki giristen sonra olu" durumunun klasik sebebi budur.
 if [ -f "$STARTUP" ]; then
-    echo "   shebang/izin : $(head -1 "$STARTUP")  $([ -x "$STARTUP" ] && echo '(executable)' || echo '(not executable)')"
+    echo "   shebang/izin : $(head -1 "$STARTUP")  $([ -x "$STARTUP" ] && echo '(executable)' || echo '(not executable; startfluxbox runs it with sh)')"
     EXEC_LN=$(grep -nE '^[[:space:]]*exec[[:space:]]+[^[:space:]]*fluxbox' "$STARTUP" | head -1 | cut -d: -f1)
     BLK_LN=$(grep -n '>>> alttab-personal >>>' "$STARTUP" | head -1 | cut -d: -f1)
     echo "   exec fluxbox : ${EXEC_LN:-MISSING}    alt-tab block: ${BLK_LN:-MISSING}"
