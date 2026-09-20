@@ -38,7 +38,9 @@ while [ $# -gt 0 ]; do
 done
 
 say() { echo "$@"; }
-en_tr() { echo "   $1"; echo "   $2"; }
+# Prints the English line and, when given, the Turkish one.
+# Tek argumanla cagrilirsa da guvenli olsun (set -u altinda $2 patlamasin).
+en_tr() { echo "   $1"; if [ $# -gt 1 ]; then echo "   $2"; fi; }
 
 # ---------------------------------------------------------------- environment
 SESSION_TYPE="${XDG_SESSION_TYPE:-}"
@@ -126,7 +128,8 @@ fi
 # Fluxbox has its own proven script (keys file + startup + mod1 repair).
 if [ "$WM" = "fluxbox" ] && [ -x "$SRC/setup-fluxbox.sh" ]; then
     say ""
-    en_tr "Fluxbox detected -> handing over to setup-fluxbox.sh / Fluxbox bulundu -> setup-fluxbox.sh'e devrediliyor"
+    en_tr "Fluxbox detected - handing over to setup-fluxbox.sh" \
+          "Fluxbox bulundu - setup-fluxbox.sh'e devrediliyor"
     exec bash "$SRC/setup-fluxbox.sh" "$@"
 fi
 
