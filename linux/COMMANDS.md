@@ -6,13 +6,24 @@ Her komut masaustu kullanicisi olarak, grafik oturumunun icinde calistirilir; ro
 ## 1. Install, update and start / Kur, guncelle ve baslat
 
 ```bash
-bash setup-fluxbox.sh --start
+bash install.sh --start        # any desktop / her masaustu: kur, guncelle, baslat
+bash install.sh --check        # report only / sadece rapor
+bash install.sh --wm xfwm4     # force the desktop if detection is wrong / tespit yanlissa zorla
+bash setup-fluxbox.sh --start  # Fluxbox only / sadece Fluxbox
 ```
 
-What it does / yapar: gives Hermes temporary X access (only useful when Hermes verifies the app on
-your machine), frees `Mod1 Tab` from Fluxbox with a backup of `~/.fluxbox/keys`, copies this folder
-to `~/.alttab-linux`, checks that the Alt key really produces Mod1 and repairs the modifier map if
-not (writing the same guarded repair into `~/.fluxbox/startup`), installs autostart, starts the app.
+`install.sh` detects the session and the window manager. On Fluxbox it delegates to the proven
+`setup-fluxbox.sh`; elsewhere it installs to `~/.alttab-linux`, frees Alt+Tab where that can be done
+from the command line (XFCE, MATE, Cinnamon, GNOME), writes
+`~/.config/autostart/alttab-personal.desktop`, checks and repairs the Alt→Mod1 mapping, then verifies
+the install. KDE, i3, sway and unknown window managers need the shortcut cleared by hand — the script
+prints exactly where.
+
+`install.sh` oturumu ve pencere yoneticisini tespit eder. Fluxbox'ta kanitlanmis `setup-fluxbox.sh`'e
+devreder; diger masaustlerinde `~/.alttab-linux` icine kurar, Alt+Tab'i komut satirindan serbest
+birakabildigi yerlerde birakir (XFCE, MATE, Cinnamon, GNOME), `~/.config/autostart/` kaydini yazar,
+Alt→Mod1 eslesmesini kontrol edip onarir ve kurulumu dogrular. KDE, i3, sway ve bilinmeyen pencere
+yoneticilerinde kisayol elle temizlenmelidir — betik nerede oldugunu yazar.
 
 `~/.fluxbox/keys` icindeki `Mod1 Tab` baglamasi yedeklenerek serbest birakilir, bu klasor
 `~/.alttab-linux` icine kopyalanir, Alt tusunun gercekten Mod1 urettigi kontrol edilir ve degilse

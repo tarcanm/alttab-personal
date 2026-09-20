@@ -18,10 +18,62 @@ yazıldı. Yeni paket gerekmez: Debian/Fluxbox masaüstünde zaten olanı kullan
 | release `Alt` or `Return` | raise the selected window / seçili pencereyi öne al |
 | `Esc` | cancel / iptal |
 
+## Install / Kurulum
+
+The installer detects your session and window manager, then does the right thing for that desktop.
+Kurulum betiği oturumunu ve pencere yöneticini tespit eder, sonra o masaüstü için doğru olanı yapar.
+
+```bash
+git clone https://github.com/tarcanm/alttab-personal.git
+cd alttab-personal/linux
+bash install.sh              # install / update / kur / güncelle
+bash install.sh --start      # install and start it now / kur ve hemen başlat
+bash install.sh --check      # report only, change nothing / sadece rapor, hiçbir şeyi değiştirmez
+bash install.sh --wm fluxbox # force a desktop if detection gets it wrong / yanlış tespit ederse zorla
+```
+
+No `git` on that machine? / O makinede `git` yoksa:
+
+```bash
+curl -fsSL https://github.com/tarcanm/alttab-personal/archive/refs/heads/main.tar.gz | tar xz -C /tmp
+bash /tmp/alttab-personal-main/linux/install.sh
+```
+
+Run it **as your desktop user, inside the graphical session** — not as root, not from a TTY.
+**Masaüstü kullanıcın olarak, grafik oturumun içinde** çalıştır — root olarak değil, TTY'den değil.
+
+**What it handles per desktop / Masaüstüne göre yaptıkları**
+
+| Desktop / Masaüstü | Frees Alt+Tab / Alt+Tab'ı serbest bırakır | Autostart / Otomatik başlatma |
+|---|---|---|
+| Fluxbox | yes — delegates to the proven `setup-fluxbox.sh` / kanıtlanmış betiğe devreder | `~/.fluxbox/startup` |
+| XFCE (xfwm4) | yes — `xfconf-query` / evet | `~/.config/autostart/` |
+| MATE (marco) | yes — `gsettings` / evet | `~/.config/autostart/` |
+| Cinnamon (muffin) | yes — `gsettings` / evet | `~/.config/autostart/` |
+| GNOME (mutter) | yes — `gsettings` / evet | `~/.config/autostart/` |
+| KDE (KWin) | manual: System Settings → Shortcuts / elle | `~/.config/autostart/` |
+| Openbox | Alt+Tab is not bound by default / varsayılan olarak bağlı değil | `~/.config/autostart/` |
+| i3, sway, JWM, IceWM, others | manual / elle | `~/.config/autostart/` |
+
+The installer also checks that **Alt is on Mod1** and repairs that mapping (a session where `mod1` is
+empty makes Alt+Tab impossible — the same bug that killed Fluxbox's own `Mod1+Tab` on MX Linux).
+Kurulum ayrıca **Alt tuşunun Mod1'de olduğunu** kontrol eder ve gerekirse düzeltir (`mod1` boşken
+Alt+Tab imkânsızdır — MX Linux'ta Fluxbox'ın kendi `Mod1+Tab`'ını öldüren aynı hata).
+
+**Wayland:** not supported. The app grabs Alt+Tab on the X11 display, so use an X11/Xorg session.
+**Wayland:** desteklenmez. Uygulama Alt+Tab'ı X11 ekranında tutar; X11/Xorg oturumu kullan.
+
+**Uninstall / Kaldırma**
+
+```bash
+rm -rf ~/.alttab-linux ~/.config/autostart/alttab-personal.desktop
+# Fluxbox also: remove the AltTab block from ~/.fluxbox/startup and restore ~/.fluxbox/keys.bak-*
+```
+
 ## Run / Çalıştırma
 
 ```bash
-bash setup-fluxbox.sh            # Fluxbox: free Alt+Tab, install, autostart / Alt+Tab'ı al, kur
+bash setup-fluxbox.sh            # Fluxbox only, the original script / sadece Fluxbox, özgün betik
 bash setup-fluxbox.sh --start    # ...and start the app / ...ve uygulamayı başlat
 ./run.sh                         # start the switcher / değiştiriciyi başlat
 ./run.sh --print-windows         # dump the window list and exit / listeyi yaz ve çık
