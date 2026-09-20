@@ -26,6 +26,11 @@ SRC="$(cd "$(dirname "$0")" && pwd)"
 DEST="$HOME/.alttab-linux"
 MODE="install"
 WM_OVERRIDE=""
+# The loop below consumes the arguments, so keep a copy to hand over to setup-fluxbox.sh. Without it
+# `install.sh --start` arrived there with no arguments at all and the app was never started.
+# Asagidaki dongu argumanlari tuketiyor; setup-fluxbox.sh'e devrederken kullanmak icin kopyasini
+# sakliyoruz. Bu olmadan `install.sh --start` oraya argumansiz ulasiyor ve uygulama hic baslamiyordu.
+ORIG_ARGS=("$@")
 while [ $# -gt 0 ]; do
     case "$1" in
         --start) MODE="start"; shift ;;
@@ -130,7 +135,7 @@ if [ "$WM" = "fluxbox" ] && [ -x "$SRC/setup-fluxbox.sh" ]; then
     say ""
     en_tr "Fluxbox detected - handing over to setup-fluxbox.sh" \
           "Fluxbox bulundu - setup-fluxbox.sh'e devrediliyor"
-    exec bash "$SRC/setup-fluxbox.sh" "$@"
+    exec bash "$SRC/setup-fluxbox.sh" "${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"}"
 fi
 
 say ""
