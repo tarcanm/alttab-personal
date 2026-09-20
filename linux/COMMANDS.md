@@ -13,14 +13,18 @@ bash setup-fluxbox.sh --start  # Fluxbox only / sadece Fluxbox
 ```
 
 `install.sh` detects the session and the window manager. On Fluxbox it delegates to the proven
-`setup-fluxbox.sh`; elsewhere it installs to `~/.alttab-linux`, frees Alt+Tab where that can be done
-from the command line (XFCE, MATE, Cinnamon, GNOME), writes
+`setup-fluxbox.sh`, which writes a marked AltTab block into `~/.fluxbox/startup` *before* the
+`exec fluxbox` line (startfluxbox execs that file, so anything after the window manager call never
+runs) and frees `Mod1 Tab` in `~/.fluxbox/keys`; elsewhere it installs to `~/.alttab-linux`, frees
+Alt+Tab where that can be done from the command line (XFCE, MATE, Cinnamon, GNOME), writes
 `~/.config/autostart/alttab-personal.desktop`, checks and repairs the Alt→Mod1 mapping, then verifies
 the install. KDE, i3, sway and unknown window managers need the shortcut cleared by hand — the script
 prints exactly where.
 
 `install.sh` oturumu ve pencere yoneticisini tespit eder. Fluxbox'ta kanitlanmis `setup-fluxbox.sh`'e
-devreder; diger masaustlerinde `~/.alttab-linux` icine kurar, Alt+Tab'i komut satirindan serbest
+devreder; o betik `~/.fluxbox/startup` icine isaretli bir AltTab blogu yazar ve blok `exec fluxbox`
+satirindan ONCE gelir (startfluxbox o dosyayi exec eder, pencere yoneticisi cagrisindan sonrasi
+calismaz); diger masaustlerinde `~/.alttab-linux` icine kurar, Alt+Tab'i komut satirindan serbest
 birakabildigi yerlerde birakir (XFCE, MATE, Cinnamon, GNOME), `~/.config/autostart/` kaydini yazar,
 Alt→Mod1 eslesmesini kontrol edip onarir ve kurulumu dogrular. KDE, i3, sway ve bilinmeyen pencere
 yoneticilerinde kisayol elle temizlenmelidir — betik nerede oldugunu yazar.

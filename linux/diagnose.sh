@@ -56,7 +56,17 @@ else
 fi
 RUNNING=$(pgrep -u "$(id -u)" -f '^python3 alttab_personal.py' 2>/dev/null | tr '\n' ' ')
 say "   surec/process   : ${RUNNING:-YOK (not running)}"
-say "   ~/.fluxbox/startup        : $([ -f "$HOME/.fluxbox/startup" ] && echo 'var' || echo 'YOK')"
+STARTUP_FILE="$HOME/.fluxbox/startup"
+say "   ~/.fluxbox/startup        : $([ -f "$STARTUP_FILE" ] && echo 'var' || echo 'YOK')"
+if [ -f "$STARTUP_FILE" ]; then
+    say "   startup shebang/izin      : $(head -1 "$STARTUP_FILE" 2>/dev/null) $([ -x "$STARTUP_FILE" ] && echo '(calistirilabilir)' || echo '(calistirilamaz)')"
+    EXEC_LN=$(grep -nE '^[[:space:]]*exec[[:space:]]+[^[:space:]]*fluxbox' "$STARTUP_FILE" 2>/dev/null | head -1 | cut -d: -f1)
+    BLK_LN=$(grep -n '>>> alttab-personal >>>' "$STARTUP_FILE" 2>/dev/null | head -1 | cut -d: -f1)
+    say "   exec fluxbox satiri       : ${EXEC_LN:-YOK}   AltTab blogu: ${BLK_LN:-YOK}"
+    if [ -n "${BLK_LN:-}" ] && [ -n "${EXEC_LN:-}" ] && [ "$BLK_LN" -gt "$EXEC_LN" ]; then
+        say "   >>> SORUN: blok 'exec fluxbox'tan SONRA; girişte hic calismaz <<<"
+    fi
+fi
 STARTLINES=$(grep -c 'alttab' "$HOME/.fluxbox/startup" 2>/dev/null || true)
 say "   startup icinde alttab     : ${STARTLINES:-0} satir"
 say "   ~/.fluxbox/keys           : $([ -f "$HOME/.fluxbox/keys" ] && echo 'var' || echo 'YOK')"

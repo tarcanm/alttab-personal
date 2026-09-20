@@ -82,11 +82,18 @@ bash setup-fluxbox.sh --start    # ...and start the app / ...ve uygulamayı baş
 python3 tests/test_logic.py      # offline tests, no X11 needed / çevrimdışı testler
 ```
 
-Autostart: copy `alttab-personal.desktop` to `~/.config/autostart/`, or add
-`~/.alttab-linux/run.sh &` to `~/.fluxbox/startup`.
+Autostart: on Fluxbox `install.sh` writes a marked block into `~/.fluxbox/startup` **before** the
+`exec fluxbox` line — `/usr/bin/startfluxbox` execs that file, so anything placed after the window
+manager call never runs — and on the other desktops it writes
+`~/.config/autostart/alttab-personal.desktop`. By hand it is the same: put the launcher before
+`exec fluxbox` in `~/.fluxbox/startup`, or copy `alttab-personal.desktop` to `~/.config/autostart/`.
 
-Otomatik başlatma: `alttab-personal.desktop` dosyasını `~/.config/autostart/` altına kopyala, ya da
-`~/.fluxbox/startup` içine `~/.alttab-linux/run.sh &` satırını ekle.
+Otomatik başlatma: Fluxbox'ta `install.sh`, `~/.fluxbox/startup` içine işaretli bir blok yazar ve blok
+`exec fluxbox` satırından **önce** gelir — `/usr/bin/startfluxbox` o dosyayı exec eder, yani pencere
+yöneticisi çağrısından sonra konan hiçbir satır çalışmaz. Diğer masaüstlerinde
+`~/.config/autostart/alttab-personal.desktop` yazılır. Elle yapmak da aynı: başlatıcıyı
+`~/.fluxbox/startup` içinde `exec fluxbox`'tan önce koy, ya da `.desktop` dosyasını
+`~/.config/autostart/` altına kopyala.
 
 ## Testing / Test
 
@@ -116,12 +123,19 @@ tuş tekrarı) `tests/test_hotkey_logic.py` ile kapsanıyor.
 
 Fluxbox binds `Mod1 Tab` to `NextWindow` from its compiled-in defaults, and X gives a key
 combination to one client only. That is why the setup script neutralises those lines in
-`~/.fluxbox/keys` and reloads the window manager. Without that step the app exits with the message
-in `L.grab_unavailable`.
+`~/.fluxbox/keys` and reloads the window manager. If the combination is still taken when the app
+starts — the usual case at login, while the window manager is still binding its keys — the app stays
+alive and retries with backoff (0.25s, 0.5s, 1s … 30s) instead of exiting, and re-installs the grab
+on X `MappingNotify`, so an `xmodmap` change or a window manager reloading its keys is picked up
+without a restart.
 
 Fluxbox, `Mod1 Tab` kombinasyonunu derlenmiş varsayılanlarla `NextWindow`'a bağlar ve X bir kombinasyonu
 tek bir istemciye verir. Bu yüzden kurulum betiği `~/.fluxbox/keys` içindeki o satırları etkisiz hale
-getirip pencere yöneticisini yeniler. O adım olmadan uygulama `L.grab_unavailable` mesajıyla çıkar.
+getirip pencere yöneticisini yeniler. Kombinasyon uygulama başlarken hâlâ başkasındaysa — giriş
+anında, pencere yöneticisi tuşlarını bağlarken sık görülür — uygulama çıkmak yerine yaşamaya devam
+eder ve artan aralıklarla (0.25s, 0.5s, 1s … 30s) tekrar dener; X `MappingNotify` geldiğinde grab'i
+yeniden kurar, yani `xmodmap` değişikliği ya da pencere yöneticisinin tuşları yeniden yüklemesi
+yeniden başlatmaya gerek kalmadan yakalanır.
 
 ## When Alt is not Mod1 / Alt Mod1 değilse
 

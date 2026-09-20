@@ -17,8 +17,20 @@ done
 
 if [ "$DAEMON" = "1" ] && command -v flock >/dev/null 2>&1; then
     exec 9>"$PWD/.alttab.lock"
-    if ! flock -n 9; then
-        echo "AltTab Personal is already running, exiting / zaten calisiyor, cikiliyor" >&2
+    # -w waits a moment so a process that is shutting down does not look like a permanent block, and
+    # the holder is reported: a silent "already running" hides where the running copy lives.
+    # -w kisa sure bekler, boylece kapanmakta olan bir surec kalici engel gibi gorunmez; kilidi tutan
+    # da yazilir: sessiz bir "already running" calisan kopyanin nerede oldugunu saklar.
+    if ! flock -w 5 9; then
+        HOLDER=""
+        if command -v lsof >/dev/null 2>&1; then
+            HOLDER=$(lsof -t "$PWD/.alttab.lock" 2>/dev/null | tr '\n' ' ')
+        fi
+        if [ -z "$HOLDER" ]; then
+            HOLDER=$(pgrep -u "$(id -u)" -f '^python3 alttab_personal.py' 2>/dev/null | tr '\n' ' ')
+        fi
+        echo "AltTab Personal is already running (pid ${HOLDER:-unknown}); exiting /" >&2
+        echo "zaten calisiyor (pid ${HOLDER:-bilinmiyor}); cikiliyor" >&2
         exit 0
     fi
 fi

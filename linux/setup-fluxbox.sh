@@ -91,15 +91,67 @@ fluxbox-remote reconfig >/dev/null 2>&1 || killall -HUP fluxbox 2>/dev/null || t
 sleep 1
 
 echo "== 2b/5 Autostart file / Otomatik baslatma dosyasi"
-# Fluxbox runs ~/.fluxbox/startup at login and ignores ~/.config/autostart completely, so a machine
-# without that file never brings the app back after a reboot. Seed it before writing anything into it.
-# Once seeded, the mod1 repair block and the AltTab autostart block below both land in that file.
-# Fluxbox girişte ~/.fluxbox/startup dosyasını çalıştırır ve ~/.config/autostart'ı hiç okumaz; bu
-# dosya yoksa uygulama yeniden başlatmadan sonra asla geri gelmez. İçine bir şey yazmadan önce
-# oluşturuyoruz; sonra mod1 onarımı ve AltTab otomatik başlatma blokları bu dosyaya girer.
+# IMPORTANT: Fluxbox is started BY ~/.fluxbox/startup. /usr/bin/startfluxbox execs that file when it
+# exists and the file is expected to start the window manager itself, so the stock file ends with
+# `exec fluxbox`. Anything appended AFTER that line never runs: an autostart line at the end of the
+# file is dead code, which is exactly why the app never came back after a login. The AltTab block
+# therefore goes BEFORE the first `exec fluxbox` line, wrapped in markers so a re-run replaces it
+# instead of piling up copies.
+# ONEMLI: Fluxbox'u ~/.fluxbox/startup dosyasi baslatir. /usr/bin/startfluxbox o dosya varsa exec
+# eder ve dosyanin pencere yoneticisini kendisi baslatmasi beklenir; stok dosya `exec fluxbox` ile
+# biter. O satirdan SONRA eklenen hicbir sey calismaz; dosyanin sonuna konan otomatik baslatma satiri
+# olu koddur ve uygulamanin girişten sonra geri gelmemesinin sebebi buydu. Bu yuzden AltTab blogu ilk
+# `exec fluxbox` satirindan ONCE eklenir ve isaretler arasina yazilir; boylece tekrar calistirmada
+# kopya birikmez, blok degistirilir.
 STARTUP="$HOME/.fluxbox/startup"
+BLOCK_FILE="$(mktemp "${TMPDIR:-/tmp}/alttab-block.XXXXXX")"
+trap 'rm -f "$BLOCK_FILE"' EXIT
+
+cat > "$BLOCK_FILE" <<'BLOCK'
+# >>> alttab-personal >>>
+# Keep Alt on Mod1: with an empty mod1 nothing bound to Mod1 can ever fire.
+if ! xmodmap -pm 2>/dev/null | grep -qE "^mod1[[:space:]]+.*Alt"; then
+    xmodmap -e "clear control" -e "add control = Control_L Control_R" -e "clear mod1" -e "add mod1 = Alt_L"
+fi
+if [ -x "$HOME/.alttab-linux/run.sh" ]; then
+    setsid nohup "$HOME/.alttab-linux/run.sh" --debug >> "$HOME/.alttab-linux/alttab.log" 2>&1 &
+fi
+# <<< alttab-personal <<<
+BLOCK
+
+strip_alttab_block() {
+    # Remove a previous marked block, plus the unmarked tail older versions appended.
+    # Onceki isaretli blogu ve eski surumlerin dosya sonuna biraktigi isaretsiz kuyrugu kaldir.
+    awk '
+        /^# >>> alttab-personal >>>$/ { skip = 1; next }
+        /^# <<< alttab-personal <<<$/ { skip = 0; next }
+        skip { next }
+        /^# AltTab Personal: keep Alt on Mod1/ { legacy = 1 }
+        /^# AltTab Personal$/ { legacy = 1 }
+        /alttab-linux\/run\.sh/ { legacy = 1 }
+        /alttab-mod1-repair/ { legacy = 1 }
+        legacy { next }
+        { print }
+    ' "$1" > "$1.alttab-new" && mv "$1.alttab-new" "$1"
+}
+
+insert_alttab_block() {
+    # Before the first `exec ...fluxbox`, or at the end when the file has no such line.
+    # Ilk `exec ...fluxbox` satirindan once, dosyada yoksa sona ekle.
+    awk -v block="$BLOCK_FILE" '
+        function emit(   line) {
+            while ((getline line < block) > 0) print line
+            close(block)
+        }
+        !done && /^[[:space:]]*exec[[:space:]]+[^[:space:]]*fluxbox/ { emit(); done = 1 }
+        { print }
+        END { if (!done) emit() }
+    ' "$1" > "$1.alttab-new" && mv "$1.alttab-new" "$1"
+}
+
 if [ ! -f "$STARTUP" ]; then
-    for tpl in /usr/share/doc/fluxbox/examples/startup /etc/X11/fluxbox/startup /usr/share/fluxbox/startup; do
+    mkdir -p "$HOME/.fluxbox"
+    for tpl in /usr/share/doc/fluxbox/examples/startup /usr/share/fluxbox/startup; do
         if [ -f "$tpl" ]; then
             cp "$tpl" "$STARTUP"
             echo "   $STARTUP was missing, seeded from $tpl"
@@ -108,11 +160,38 @@ if [ ! -f "$STARTUP" ]; then
         fi
     done
     if [ ! -f "$STARTUP" ]; then
-        mkdir -p "$HOME/.fluxbox"
-        printf '#!/bin/sh\n# Created by AltTab Personal. Fluxbox runs this file at login;\n# put your own commands above the AltTab block at the end.\n' > "$STARTUP"
+        cat > "$STARTUP" <<'MINIMAL'
+#!/bin/sh
+# Created by AltTab Personal. Fluxbox runs this file at login (startfluxbox execs it), so the window
+# manager has to be started at the end - keep that line. Your own commands go above the block below.
+# AltTab Personal tarafindan olusturuldu. Fluxbox bu dosyayi girişte calistirir (startfluxbox exec
+# eder), bu yuzden pencere yoneticisi sonda baslatilmalidir - o satiri koru. Kendi komutlarin,
+# asagidaki blogun uzerine gelir.
+MINIMAL
         chmod +x "$STARTUP"
         echo "   created a minimal $STARTUP / minimal dosya olusturuldu"
     fi
+fi
+
+# startfluxbox expects this file to start the window manager: a file without that line leaves the
+# session without a window manager, so make sure the line exists before anything is inserted.
+# startfluxbox bu dosyadan pencere yoneticisini baslatmasini bekler: o satir yoksa oturum pencere
+# yoneticisiz kalir, bu yuzden bir sey eklemeden once satirin varligindan emin oluyoruz.
+if ! grep -qE '^[[:space:]]*exec[[:space:]]+[^[:space:]]*fluxbox' "$STARTUP"; then
+    printf '\nexec fluxbox\n' >> "$STARTUP"
+    echo "   added the missing 'exec fluxbox' line / eksik exec fluxbox satiri eklendi"
+fi
+
+cp -a "$STARTUP" "$STARTUP.bak-$(date +%Y%m%d-%H%M%S)"
+strip_alttab_block "$STARTUP"
+insert_alttab_block "$STARTUP"
+BLOCK_LINE=$(grep -n '>>> alttab-personal >>>' "$STARTUP" | head -1 | cut -d: -f1)
+EXEC_LINE=$(grep -nE '^[[:space:]]*exec[[:space:]]+[^[:space:]]*fluxbox' "$STARTUP" | head -1 | cut -d: -f1)
+echo "   alt-tab block line ${BLOCK_LINE:-?}, 'exec fluxbox' line ${EXEC_LINE:-?}"
+echo "   AltTab blogu ${BLOCK_LINE:-?}. satir, 'exec fluxbox' ${EXEC_LINE:-?}. satir"
+if [ -n "$BLOCK_LINE" ] && [ -n "$EXEC_LINE" ] && [ "$BLOCK_LINE" -gt "$EXEC_LINE" ]; then
+    echo "   WARNING: the block sits after 'exec fluxbox' and would never run /"
+    echo "   UYARI: blok exec fluxbox'tan sonra kaldi ve hic calismaz"
 fi
 
 echo "== 3/5 Install to ~/.alttab-linux / ~/.alttab-linux icine kur"
@@ -144,30 +223,23 @@ if command -v xmodmap >/dev/null 2>&1; then
             echo "   WARNING: could not repair mod1 / mod1 duzeltilemedi"
         fi
     fi
-    # Remember the repair for every later login, unconditionally: the block checks before acting, so
-    # it is a no-op while the map is healthy and a fix when some session start breaks it again.
-    # Onarimi her sonraki giris icin kosulsuz hatirla: blok once kontrol eder, harita saglikliyken
-    # hicbir sey yapmaz, bir oturum baslangici tekrar bozarsa duzeltir.
-    if [ -f "$STARTUP" ] && ! grep -q 'alttab-mod1-repair' "$STARTUP"; then
-        printf '\n# AltTab Personal: keep Alt on Mod1 / Alt Mod1 de kalsin\n# alttab-mod1-repair\nif ! xmodmap -pm 2>/dev/null | grep -qE "^mod1[[:space:]]+.*Alt"; then\n    xmodmap -e "clear control" -e "add control = Control_L Control_R" -e "clear mod1" -e "add mod1 = Alt_L"\nfi\n' >> "$HOME/.fluxbox/startup"
-        echo "   mod1 repair block written to ~/.fluxbox/startup / onarim blogu startup'a yazildi"
-    fi
+    # The repair is repeated at every login by the AltTab block written into ~/.fluxbox/startup in
+    # 2b/5, so nothing has to be remembered separately here.
+    # Onarim her giriste 2b/5'te ~/.fluxbox/startup icine yazilan AltTab blogu tarafindan tekrarlanir;
+    # burada ayrica hatirlanacak bir sey yok.
 fi
 
 echo "== 4/5 Autostart / Otomatik baslatma"
-if [ -f "$STARTUP" ]; then
-    if grep -q '\[ -x "$HOME/.alttab-linux/run.sh" \]' "$STARTUP"; then
-        # Replace the old one-liner with a logging version, so a failed start at login is
-        # diagnosable instead of silent / Eski tek satiri gunluk yazan surumle degistir; boylece
-        # giriste basarisiz bir baslatma sessiz kalmaz, incelenebilir.
-        sed -i '\|\[ -x "$HOME/.alttab-linux/run.sh" \]|d' "$STARTUP"
-        printf 'if [ -x "$HOME/.alttab-linux/run.sh" ]; then\n    "$HOME/.alttab-linux/run.sh" --debug >> "$HOME/.alttab-linux/alttab.log" 2>&1 &\nfi\n' >> "$HOME/.fluxbox/startup"
-        echo "   autostart line upgraded to log to ~/.alttab-linux/alttab.log"
-    elif ! grep -q 'alttab-linux' "$STARTUP"; then
-        printf '\n# AltTab Personal\nif [ -x "$HOME/.alttab-linux/run.sh" ]; then\n    "$HOME/.alttab-linux/run.sh" --debug >> "$HOME/.alttab-linux/alttab.log" 2>&1 &\nfi\n' >> "$HOME/.fluxbox/startup"
-    fi
-    echo "   ~/.fluxbox/startup updated / guncellendi"
-fi
+echo "   ~/.fluxbox/startup carries the AltTab block, before 'exec fluxbox' /"
+echo "   ~/.fluxbox/startup AltTab blogunu tasiyor, 'exec fluxbox'tan once"
+# No XDG entry on purpose: Fluxbox never reads ~/.config/autostart, and on a session that does read
+# it a second copy would only race the first one for the Alt+Tab grab. A stale entry from an earlier
+# version is removed so exactly one mechanism starts the app.
+# XDG kaydi bilincli olarak yazilmaz: Fluxbox ~/.config/autostart'i hic okumaz, okuyan bir oturumda
+# ise ikinci kopya Alt+Tab grab'i icin birinciyle yarismaktan baska ise yaramaz. Eski surumden kalan
+# kayit silinir, boylece uygulamayi tek bir mekanizma baslatir.
+rm -f "$HOME/.config/autostart/alttab-personal.desktop"
+echo "   stale XDG entry removed if present / varsa eski XDG kaydi kaldirildi"
 # Belt and braces: write the XDG entry as well. Fluxbox ignores it, but a session that brings the
 # desktop up through a session manager picks the app up from there. run.sh holds a lock, so a double
 # start is harmless.

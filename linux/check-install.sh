@@ -28,12 +28,24 @@ fi
 
 echo "== 2) Installed copy vs source / kurulu kopya ile kaynak ayni mi"
 if [ -f "$DEST/x11_hotkey.py" ]; then
-    md5sum "$DEST/x11_hotkey.py" "$SRC/x11_hotkey.py" 2>&1
-    md5sum "$DEST/alttab_personal.py" "$SRC/alttab_personal.py" 2>&1
-    if [ "$(md5sum < "$DEST/x11_hotkey.py")" = "$(md5sum < "$SRC/x11_hotkey.py")" ]; then
+    # Compare every file that can change behaviour, not just two: a stale x11_hotkey.py or run.sh is
+    # enough for "the fix is in the repo but not on this machine".
+    # Davranisi degistirebilecek tum dosyalari karsilastir: eski bir x11_hotkey.py ya da run.sh,
+    # "duzeltme repoda var ama makinede yok" demek icin yeterlidir.
+    STALE=0
+    for f in x11_hotkey.py alttab_personal.py window_list.py panel.py logic.py l.py run.sh; do
+        if [ ! -f "$DEST/$f" ]; then
+            echo "   MISSING: $f"
+            STALE=1
+        elif [ "$(md5sum < "$DEST/$f")" != "$(md5sum < "$SRC/$f")" ]; then
+            echo "   STALE: $f"
+            STALE=1
+        fi
+    done
+    if [ "$STALE" = "0" ]; then
         echo "   OK: installed copy matches this source / kurulu kopya bu kaynakla ayni"
     else
-        echo "   STALE: re-run setup-fluxbox.sh / eski surum, setup-fluxbox.sh tekrar calistir"
+        echo "   re-run install.sh to refresh / tazelemek icin install.sh tekrar calistir"
     fi
 else
     echo "   $DEST does not exist yet / henuz yok: run setup-fluxbox.sh"
@@ -42,12 +54,32 @@ fi
 echo "== 3) Running process / calisan surec"
 pgrep -af "alttab_personal.py" | head -3 || echo "   (not running / calismiyor)"
 
-echo "== 4) Autostart and repair blocks in $STARTUP"
+echo "== 4) Autostart file / otomatik baslatma dosyasi"
+# /usr/bin/startfluxbox execs this file and the file is expected to start the window manager, so the
+# stock file ends with `exec fluxbox`. A block placed after that line never runs, which is the classic
+# reason for "works after installing, dead after the next login".
+# /usr/bin/startfluxbox bu dosyayi exec eder ve dosya pencere yoneticisini baslatmalidir; stok dosya
+# `exec fluxbox` ile biter. O satirdan sonra duran blok hic calismaz; "kurulumdan sonra calisiyor,
+# sonraki giristen sonra olu" durumunun klasik sebebi budur.
 if [ -f "$STARTUP" ]; then
-    grep -n -B1 -A5 "AltTab Personal\|alttab-mod1-repair\|alttab-linux" "$STARTUP" 2>/dev/null | head -30 \
-        || echo "   (no AltTab block found / blok yok)"
+    echo "   shebang/izin : $(head -1 "$STARTUP")  $([ -x "$STARTUP" ] && echo '(executable)' || echo '(not executable)')"
+    EXEC_LN=$(grep -nE '^[[:space:]]*exec[[:space:]]+[^[:space:]]*fluxbox' "$STARTUP" | head -1 | cut -d: -f1)
+    BLK_LN=$(grep -n '>>> alttab-personal >>>' "$STARTUP" | head -1 | cut -d: -f1)
+    echo "   exec fluxbox : ${EXEC_LN:-MISSING}    alt-tab block: ${BLK_LN:-MISSING}"
+    if [ -z "${EXEC_LN:-}" ]; then
+        echo "   BROKEN: no line starts the window manager, the session would have no WM /"
+        echo "   BOZUK: pencere yoneticisini baslatan satir yok, oturumda WM olmaz"
+    elif [ -z "${BLK_LN:-}" ]; then
+        echo "   MISSING: no alt-tab block / AltTab blogu yok"
+    elif [ "$BLK_LN" -gt "$EXEC_LN" ]; then
+        echo "   BROKEN: the block sits after 'exec fluxbox', it never runs at login /"
+        echo "   BOZUK: blok 'exec fluxbox'tan sonra, giriste hic calismaz"
+    else
+        echo "   OK: the block runs before the window manager starts / blok WM'den once calisir"
+    fi
+    grep -n -A4 '>>> alttab-personal >>>' "$STARTUP" 2>/dev/null | head -12
 else
-    echo "   (no $STARTUP, the app was installed for ~/.config/autostart instead)"
+    echo "   (no $STARTUP / dosya yok)"
 fi
 
 echo "== 5) Application log, last 8 lines / uygulama gunlugu"
@@ -67,7 +99,7 @@ try:
     root.grab_key(tab, X.Mod1Mask, True, X.GrabModeAsync, X.GrabModeAsync)
     connection.sync()
     if errors:
-        print("   Mod1+Tab is held by a client (the app when it runs) / bir istemci tutuyor (uygulama)")
+        print("   Mod1+Tab is held by another client (the app, or the window manager) / baska bir istemci tutuyor (uygulama ya da pencere yoneticisi)")
     else:
         print("   Mod1+Tab is FREE: nothing holds it, so Alt+Tab cannot work / serbest: Alt+Tab calismaz")
         root.ungrab_key(tab, X.Mod1Mask)
