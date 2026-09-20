@@ -47,6 +47,14 @@ class HotKeyUnavailable(Exception):
 
 
 class X11HotKey:
+    # Retry schedule for a blocked grab, in seconds. At login the window manager may still own
+    # Alt+Tab for a moment, and giving up on the first BadAccess left the whole session without a
+    # switcher: the app exited and nothing brought it back until the next manual start.
+    # Engellenen grab icin tekrar deneme cizelgesi (saniye). Giris aninda pencere yoneticisi Alt+Tab'i
+    # bir sure daha tutuyor olabilir; ilk BadAccess'te vazgecmek tum oturumu degistiricisiz
+    # birakiyordu: uygulama cikiyor ve elle baslatilana kadar geri gelmiyordu.
+    RETRY_DELAYS = (0.25, 0.5, 1, 2, 3, 5, 10, 20, 30)
+
     def __init__(self, on_start, on_cycle, on_commit, on_cancel, log=print):
         self.on_start = on_start
         self.on_cycle = on_cycle
@@ -65,13 +73,25 @@ class X11HotKey:
         self._source_id = None
         self._poll_id = None
         self._x_errors = []
+        self._retry_id = None
+        self._grabbing = False
+        self._grabbed = False
+        self._regrabbing = False
         self.last_event_time = 0
 
     # MARK: - Lifecycle / Yaşam döngüsü
 
     def start(self):
-        """Open the display and install the passive grab. Raises HotKeyUnavailable on failure.
-        Ekranı aç ve pasif grab'i kur. Başarısızsa HotKeyUnavailable yükseltir."""
+        """Open the display, watch its events, install the passive grab.
+
+        Ekranı aç, olaylarını izle, pasif grab'i kur.
+
+        Returns True when Alt+Tab is ours and False while another program still owns it: the app then
+        stays alive and keeps retrying, because at login a window manager can hold the combination
+        for a moment. HotKeyUnavailable is raised only for things nothing can retry.
+        Alt+Tab bizdeyse True, başka bir programdaysa False döner: uygulama o durumda yaşamaya devam
+        eder ve tekrar dener, çünkü giriş anında pencere yöneticisi kombinasyonu bir süre tutabilir.
+        HotKeyUnavailable yalnızca tekrar denenemeyecek durumlar için yükseltilir."""
         self.display = display.Display()
         self.root = self.display.screen().root
         self.display.set_error_handler(self._collect_x_error)
@@ -82,26 +102,56 @@ class X11HotKey:
                 self.keycodes[name] = keycode
         self.alt_keycode = self.keycodes.get("alt")
 
-        tab_keycode = self.keycodes.get("tab")
-        if not tab_keycode:
+        if not self.keycodes.get("tab"):
             raise HotKeyUnavailable("Tab keycode not found / Tab tuş kodu bulunamadı")
 
-        for extra in GRAB_EXTRA_MODIFIERS:
-            self.root.grab_key(
-                tab_keycode,
-                X.Mod1Mask | extra,
-                True,
-                X.GrabModeAsync,
-                X.GrabModeAsync,
-            )
-        self.display.sync()
+        self._source_id = GLib.io_add_watch(self.display.fileno(), GLib.IO_IN, self._on_x_events)
+        return self._install_grab()
 
-        for error in self._x_errors:
-            if isinstance(error, BadAccess):
-                raise HotKeyUnavailable("BadAccess on Mod1+Tab grab")
+    # MARK: - Grab installation and retries / Grab kurulumu ve tekrar denemeler
 
-        mask = self.alt_modifier_mask()
-        if mask is None:
+    def _install_grab(self, attempt=0):
+        """Try the passive grab once; plan another attempt when Alt+Tab is taken.
+
+        Pasif grab'i bir kez dene; Alt+Tab alınmışsa yeni bir deneme planla."""
+        if self.display is None:
+            return False
+        if self._grabbing:
+            return self._grabbed
+        self._grabbing = True
+        blocked = False
+        try:
+            tab_keycode = self.keycodes.get("tab")
+            for extra in GRAB_EXTRA_MODIFIERS:
+                del self._x_errors[:]
+                self.root.grab_key(
+                    tab_keycode,
+                    X.Mod1Mask | extra,
+                    True,
+                    X.GrabModeAsync,
+                    X.GrabModeAsync,
+                )
+                self.display.sync()
+                if any(isinstance(error, BadAccess) for error in self._x_errors):
+                    # Only plain Mod1+Tab is essential; the NumLock variants are best effort, so one
+                    # of them failing must not throw away the grab that does work.
+                    # Yalnızca düz Mod1+Tab şart; NumLock varyasyonları mümkünse çalışır, birinin
+                    # başarısız olması çalışan grab'i çöpe atmamalıdır.
+                    if extra == 0:
+                        blocked = True
+        finally:
+            self._grabbing = False
+
+        if blocked:
+            self._ungrab_passive()
+            self._schedule_retry(attempt)
+            return False
+
+        self._grabbed = True
+        if attempt:
+            self.log("Alt+Tab grab acquired after %d failed attempt(s)" % attempt)
+
+        if self.alt_modifier_mask() is None:
             # Without this check the app looks healthy while no key can ever trigger it: the grab
             # succeeds because nobody else owns Mod1+Tab, but an Alt key outside Mod1 never matches.
             # Bu kontrol olmadan uygulama sağlıklı görünür ama hiçbir tuş onu tetikleyemez: başkası
@@ -109,8 +159,54 @@ class X11HotKey:
             message = self.l.alt_not_mod1(self.describe_modifier_map())
             if message:
                 print(message, file=sys.stderr, flush=True)
-        self._source_id = GLib.io_add_watch(self.display.fileno(), GLib.IO_IN, self._on_x_events)
         return True
+
+    def _schedule_retry(self, attempt):
+        """Come back later for the grab instead of exiting.
+
+        Çıkmak yerine grab için sonra tekrar gel."""
+        if self._retry_id is not None:
+            return
+        delays = self.RETRY_DELAYS
+        delay = delays[attempt] if attempt < len(delays) else delays[-1]
+        self.log("Alt+Tab is owned by another program (attempt %d), retrying in %.2fs"
+                 % (attempt + 1, delay))
+        self._retry_id = GLib.timeout_add(int(delay * 1000), self._retry_grab, attempt + 1)
+
+    def _retry_grab(self, attempt):
+        """GLib timeout callback: one more try / GLib zaman aşımı geri çağrısı: bir deneme daha."""
+        self._retry_id = None
+        if self.display is not None:
+            self._install_grab(attempt)
+        return False
+
+    def _ungrab_passive(self):
+        """Drop the passive grab we hold / Bizde olan pasif grab'i bırak."""
+        tab_keycode = self.keycodes.get("tab")
+        if tab_keycode is None or self.root is None:
+            return
+        for extra in GRAB_EXTRA_MODIFIERS:
+            try:
+                self.root.ungrab_key(tab_keycode, X.Mod1Mask | extra)
+            except Exception:
+                pass
+        try:
+            self.display.sync()
+        except Exception:
+            pass
+
+    def _reinstall_grab(self):
+        """The keyboard map changed, so install the grab again.
+
+        Klavye haritası değişti, grab'i yeniden kur."""
+        if self.display is None or self._grabbing or self.active or self._regrabbing:
+            return
+        self._regrabbing = True
+        try:
+            self._ungrab_passive()
+            self._install_grab()
+        finally:
+            self._regrabbing = False
 
     def alt_modifier_mask(self):
         """Mask bit name for the Alt key, or None when Alt is outside Mod1.
@@ -142,6 +238,9 @@ class X11HotKey:
     def stop(self):
         """Remove the grab, release the keyboard and close the display.
         Grab'i kaldır, klavyeyi bırak ve ekranı kapat."""
+        if self._retry_id is not None:
+            GLib.source_remove(self._retry_id)
+            self._retry_id = None
         if self._source_id is not None:
             GLib.source_remove(self._source_id)
             self._source_id = None
@@ -222,6 +321,13 @@ class X11HotKey:
             self._handle_press(event)
         elif event.type == X.KeyRelease:
             self._handle_release(event)
+        elif event.type == X.MappingNotify:
+            # The keyboard map changed: xmodmap edits, or the window manager reloading its keys at
+            # login. A passive grab sticks to modifier mask bits, so it has to be installed again.
+            # Klavye haritası değişti: xmodmap düzenlemesi ya da girişte pencere yöneticisinin
+            # tuşlarını yeniden yüklemesi. Pasif grab modifier maskesine bağlıdır, yeniden kurulur.
+            if getattr(event, "request", X.MappingKeyboard) == X.MappingKeyboard:
+                self._reinstall_grab()
 
     def _handle_press(self, event):
         keycode = event.detail

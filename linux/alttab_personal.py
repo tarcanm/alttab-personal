@@ -124,7 +124,7 @@ class Switcher:
             print(self.l.display_missing, file=sys.stderr)
             return 3
         try:
-            self.hotkey.start()
+            installed = self.hotkey.start()
         except HotKeyUnavailable as exc:
             self.log("hotkey unavailable:", exc)
             print(self.l.grab_unavailable, file=sys.stderr)
@@ -134,7 +134,14 @@ class Switcher:
             print(self.l.startup_failed(exc), file=sys.stderr)
             return 3
 
-        print(self.l.started, flush=True)
+        # start() returns False when another program still owns Alt+Tab: the app keeps running and
+        # retries with backoff, so the log must not claim it is ready.
+        # start() başka bir program Alt+Tab'i tutuyorsa False döner: uygulama çalışmaya devam eder ve
+        # artan aralıklarla tekrar dener; bu yüzden log "hazır" dememelidir.
+        if installed:
+            print(self.l.started, flush=True)
+        else:
+            print(self.l.grab_retrying, file=sys.stderr, flush=True)
         try:
             Gtk.main()
         except KeyboardInterrupt:

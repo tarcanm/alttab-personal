@@ -65,6 +65,17 @@ class L:
             "satırı kaldır veya değiştir, pencere yöneticisini yenile, sonra bu uygulamayı tekrar başlat.",
         )
 
+    @property
+    def grab_retrying(self):
+        return self.pick(
+            "Alt+Tab is currently owned by another program (the window manager right after login, "
+            "for example). Staying alive and retrying every few seconds; if it never clears, remove "
+            "the Mod1 Tab line from ~/.fluxbox/keys and reload the window manager.",
+            "Alt+Tab şu an başka bir programda (örneğin giriş sonrası pencere yöneticisi). Uygulama "
+            "yaşıyor ve birkaç saniyede bir tekrar deniyor; hiç açılmazsa ~/.fluxbox/keys içindeki "
+            "Mod1 Tab satırını kaldırıp pencere yöneticisini yenileyin.",
+        )
+
     def alt_not_mod1(self, detail):
         """Warn when the Alt key does not produce Mod1: Alt+Tab can then never fire.
 
